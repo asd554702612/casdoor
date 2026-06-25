@@ -51,7 +51,7 @@ func PlaceOrder(owner string, reqProductInfos []ProductInfo, user *User, couponC
 		orderCurrency = "USD"
 	}
 
-	if err := validateProductCurrencies(products, orderCurrency); err != nil {
+	if err := validateOrderProducts(products, orderCurrency, reqProductInfos); err != nil {
 		return nil, err
 	}
 
@@ -81,6 +81,7 @@ func PlaceOrder(owner string, reqProductInfos []ProductInfo, user *User, couponC
 			Quantity:    productInfo.Quantity,
 			PricingName: productInfo.PricingName,
 			PlanName:    productInfo.PlanName,
+			SkipStock:   productInfo.SkipStock,
 		})
 
 		orderPrice += productPrice * float64(productInfo.Quantity)
@@ -150,7 +151,7 @@ func PayOrder(providerName, host, paymentEnv string, order *Order, lang string) 
 		orderCurrency = "USD"
 	}
 
-	if err := validateProductCurrencies(products, orderCurrency); err != nil {
+	if err := validateOrderProducts(products, orderCurrency, order.ProductInfos); err != nil {
 		return nil, nil, err
 	}
 
@@ -231,11 +232,25 @@ func PayOrder(providerName, host, paymentEnv string, order *Order, lang string) 
 		returnUrl = fmt.Sprintf("%s?transactionOwner=%s&transactionName=%s", baseProduct.SuccessUrl, owner, paymentName)
 	}
 
-	displayNames := make([]string, len(products))
-	descriptions := make([]string, len(products))
+	displayNames := make([]string, len(productNames))
+	descriptions := make([]string, len(productNames))
+	productInfoMap := map[string]ProductInfo{}
+	for _, productInfo := range orderProductInfos {
+		productInfoMap[productInfo.Name] = productInfo
+	}
 	for i, p := range products {
-		displayNames[i] = p.DisplayName
-		descriptions[i] = p.Description
+		displayName := p.DisplayName
+		description := p.Description
+		if productInfo, ok := productInfoMap[p.Name]; ok {
+			if productInfo.DisplayName != "" {
+				displayName = productInfo.DisplayName
+			}
+			if productInfo.Detail != "" {
+				description = productInfo.Detail
+			}
+		}
+		displayNames[i] = displayName
+		descriptions[i] = description
 	}
 	reqProductName := strings.Join(productNames, ", ")
 	reqProductDisplayName := strings.Join(displayNames, ", ")

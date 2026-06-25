@@ -39,6 +39,9 @@ class ProductListPage extends BaseListPage {
       quantity: 99,
       sold: 10,
       isRecharge: false,
+      allowExternalCustomAmount: false,
+      externalMinAmount: 0,
+      externalMaxAmount: 0,
       providers: [],
       state: "Published",
     };

@@ -284,6 +284,8 @@ func InitAPI() {
 	web.Router("/api/delete-payment", &controllers.ApiController{}, "POST:DeletePayment")
 	web.Router("/api/notify-payment/?:owner/?:payment", &controllers.ApiController{}, "POST:NotifyPayment")
 	web.Router("/api/invoice-payment", &controllers.ApiController{}, "POST:InvoicePayment")
+	web.Router("/api/external/payment/create", &controllers.ApiController{}, "POST:CreateExternalPayment")
+	web.Router("/api/external/payment/create-native", &controllers.ApiController{}, "POST:CreateExternalNativePayment")
 
 	web.Router("/api/get-plans", &controllers.ApiController{}, "GET:GetPlans")
 	web.Router("/api/get-plan", &controllers.ApiController{}, "GET:GetPlan")

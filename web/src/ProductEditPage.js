@@ -276,6 +276,53 @@ class ProductEditPage extends React.Component {
               </Col>
             </Row>
           )}
+        {
+          !this.state.product.isRecharge ? (
+            <>
+              <Row style={{marginTop: "20px"}} >
+                <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+                  {Setting.getLabel(i18next.t("product:Allow external custom amount"), i18next.t("product:Allow external custom amount - Tooltip"))} :
+                </Col>
+                <Col span={22} >
+                  <Switch checked={this.state.product.allowExternalCustomAmount} disabled={isViewMode || isCreatedByPlan} onChange={value => {
+                    this.updateProductField("allowExternalCustomAmount", value);
+                  }} />
+                </Col>
+              </Row>
+              {
+                this.state.product.allowExternalCustomAmount ? (
+                  <Row style={{marginTop: "20px"}} >
+                    <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+                      {Setting.getLabel(i18next.t("product:External amount range"), i18next.t("product:External amount range - Tooltip"))} :
+                    </Col>
+                    <Col span={22} >
+                      <InputNumber
+                        style={{width: Setting.isMobile() ? "100%" : "180px", marginRight: Setting.isMobile() ? 0 : "10px", marginBottom: Setting.isMobile() ? "10px" : 0}}
+                        min={0}
+                        value={this.state.product.externalMinAmount}
+                        disabled={isViewMode || isCreatedByPlan}
+                        placeholder={i18next.t("product:External min amount")}
+                        onChange={value => {
+                          this.updateProductField("externalMinAmount", value);
+                        }}
+                      />
+                      <InputNumber
+                        style={{width: Setting.isMobile() ? "100%" : "180px"}}
+                        min={0}
+                        value={this.state.product.externalMaxAmount}
+                        disabled={isViewMode || isCreatedByPlan}
+                        placeholder={i18next.t("product:External max amount")}
+                        onChange={value => {
+                          this.updateProductField("externalMaxAmount", value);
+                        }}
+                      />
+                    </Col>
+                  </Row>
+                ) : null
+              }
+            </>
+          ) : null
+        }
         <Row style={{marginTop: "20px"}} >
           <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
             {Setting.getLabel(i18next.t("product:Quantity"), i18next.t("product:Quantity - Tooltip"))} :
@@ -376,6 +423,18 @@ class ProductEditPage extends React.Component {
     if (product.isRecharge && product.disableCustomRecharge && (!product.rechargeOptions || product.rechargeOptions.length === 0)) {
       Setting.showMessage("error", i18next.t("product:Please add at least one recharge option when custom amount is disabled"));
       return;
+    }
+    if (product.allowExternalCustomAmount) {
+      const externalMinAmount = product.externalMinAmount || 0;
+      const externalMaxAmount = product.externalMaxAmount || 0;
+      if (externalMinAmount < 0 || externalMaxAmount < 0) {
+        Setting.showMessage("error", i18next.t("product:External amount range cannot be negative"));
+        return;
+      }
+      if (externalMaxAmount > 0 && externalMinAmount > externalMaxAmount) {
+        Setting.showMessage("error", i18next.t("product:External min amount cannot be greater than max amount"));
+        return;
+      }
     }
 
     ProductBackend.updateProduct(this.state.organizationName, this.state.productName, product)

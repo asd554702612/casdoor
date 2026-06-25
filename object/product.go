@@ -27,19 +27,22 @@ type Product struct {
 	CreatedTime string `xorm:"varchar(100)" json:"createdTime"`
 	DisplayName string `xorm:"varchar(100)" json:"displayName"`
 
-	Image                 string    `xorm:"varchar(100)" json:"image"`
-	Detail                string    `xorm:"varchar(1000)" json:"detail"`
-	Description           string    `xorm:"varchar(200)" json:"description"`
-	Tag                   string    `xorm:"varchar(100)" json:"tag"`
-	Currency              string    `xorm:"varchar(100)" json:"currency"`
-	Price                 float64   `json:"price"`
-	Quantity              int       `json:"quantity"`
-	Sold                  int       `json:"sold"`
-	IsRecharge            bool      `json:"isRecharge"`
-	RechargeOptions       []float64 `xorm:"varchar(500)" json:"rechargeOptions"`
-	DisableCustomRecharge bool      `json:"disableCustomRecharge"`
-	Providers             []string  `xorm:"varchar(255)" json:"providers"`
-	SuccessUrl            string    `xorm:"varchar(1000)" json:"successUrl"`
+	Image                     string    `xorm:"varchar(100)" json:"image"`
+	Detail                    string    `xorm:"varchar(1000)" json:"detail"`
+	Description               string    `xorm:"varchar(200)" json:"description"`
+	Tag                       string    `xorm:"varchar(100)" json:"tag"`
+	Currency                  string    `xorm:"varchar(100)" json:"currency"`
+	Price                     float64   `json:"price"`
+	Quantity                  int       `json:"quantity"`
+	Sold                      int       `json:"sold"`
+	IsRecharge                bool      `json:"isRecharge"`
+	RechargeOptions           []float64 `xorm:"varchar(500)" json:"rechargeOptions"`
+	DisableCustomRecharge     bool      `json:"disableCustomRecharge"`
+	AllowExternalCustomAmount bool      `json:"allowExternalCustomAmount"`
+	ExternalMinAmount         float64   `json:"externalMinAmount"`
+	ExternalMaxAmount         float64   `json:"externalMaxAmount"`
+	Providers                 []string  `xorm:"varchar(255)" json:"providers"`
+	SuccessUrl                string    `xorm:"varchar(1000)" json:"successUrl"`
 
 	State string `xorm:"varchar(100)" json:"state"`
 
@@ -104,6 +107,9 @@ func UpdateProductStock(productInfos []ProductInfo) error {
 		err      error
 	)
 	for _, product := range productInfos {
+		if product.SkipStock {
+			continue
+		}
 		if product.IsRecharge {
 			affected, err = ormer.Engine.ID(core.PK{product.Owner, product.Name}).
 				Incr("sold", product.Quantity).
@@ -174,6 +180,15 @@ func checkProduct(product *Product) error {
 
 	if product.Currency == "" {
 		return fmt.Errorf("currency cannot be empty")
+	}
+	if product.ExternalMinAmount < 0 {
+		return fmt.Errorf("external min amount cannot be negative")
+	}
+	if product.ExternalMaxAmount < 0 {
+		return fmt.Errorf("external max amount cannot be negative")
+	}
+	if product.ExternalMaxAmount > 0 && product.ExternalMinAmount > product.ExternalMaxAmount {
+		return fmt.Errorf("external min amount cannot be greater than external max amount")
 	}
 
 	if len(product.Providers) == 0 {
@@ -374,6 +389,29 @@ func validateProductCurrencies(products []Product, orderCurrency string) error {
 			return fmt.Errorf("products have different currencies, expected: %s, got: %s (product: %s)", orderCurrency, productCurrency, product.Name)
 		}
 		if !product.IsRecharge && product.Quantity <= 0 {
+			return fmt.Errorf("the product: %s is out of stock", product.Name)
+		}
+	}
+	return nil
+}
+
+func validateOrderProducts(products []Product, orderCurrency string, productInfos []ProductInfo) error {
+	skipStockMap := map[string]bool{}
+	for _, productInfo := range productInfos {
+		if productInfo.SkipStock {
+			skipStockMap[productInfo.Name] = true
+		}
+	}
+
+	for _, product := range products {
+		productCurrency := product.Currency
+		if productCurrency == "" {
+			productCurrency = "USD"
+		}
+		if productCurrency != orderCurrency {
+			return fmt.Errorf("products have different currencies, expected: %s, got: %s (product: %s)", orderCurrency, productCurrency, product.Name)
+		}
+		if !skipStockMap[product.Name] && !product.IsRecharge && product.Quantity <= 0 {
 			return fmt.Errorf("the product: %s is out of stock", product.Name)
 		}
 	}

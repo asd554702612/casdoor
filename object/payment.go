@@ -337,13 +337,8 @@ func NotifyPayment(body []byte, owner string, paymentName string, lang string) (
 		if err != nil {
 			return nil, err
 		}
-		if len(products) == 0 {
-			return nil, fmt.Errorf("order has no products")
-		}
-		for _, product := range products {
-			if !product.IsRecharge && product.Quantity <= 0 {
-				return nil, fmt.Errorf("the product: %s is out of stock", product.Name)
-			}
+		if err = validatePaidOrderProducts(products, order); err != nil {
+			return nil, err
 		}
 
 		user, err := getUser(payment.Owner, payment.User)
@@ -426,8 +421,29 @@ func NotifyPayment(body []byte, owner string, paymentName string, lang string) (
 				logs.Warning(fmt.Sprintf("NotifyPayment: failed to record coupon usage for order %s: %v", order.Name, err))
 			}
 		}
+
+		if err = CreateExternalPaymentPaidWebhookEvents(payment, order); err != nil {
+			logs.Warning(fmt.Sprintf("NotifyPayment: failed to create external payment webhook events for payment %s: %v", payment.Name, err))
+		}
 	}
 	return payment, nil
+}
+
+func validatePaidOrderProducts(products []Product, order *Order) error {
+	if len(products) == 0 {
+		return fmt.Errorf("order has no products")
+	}
+
+	orderCurrency := ""
+	productInfos := []ProductInfo{}
+	if order != nil {
+		orderCurrency = order.Currency
+		productInfos = order.ProductInfos
+	}
+	if orderCurrency == "" {
+		orderCurrency = "USD"
+	}
+	return validateOrderProducts(products, orderCurrency, productInfos)
 }
 
 func invoicePayment(payment *Payment) (string, error) {

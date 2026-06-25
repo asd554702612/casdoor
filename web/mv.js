@@ -16,6 +16,15 @@ if (fs.existsSync(targetDir)) {
   console.log(`Target directory "${targetDir}" has been deleted successfully.`);
 }
 
-fs.renameSync(sourceDir, targetDir);
+try {
+  fs.renameSync(sourceDir, targetDir);
+} catch (err) {
+  if (err.code !== "EXDEV") {
+    throw err;
+  }
+
+  fs.cpSync(sourceDir, targetDir, {recursive: true});
+  fs.rmSync(sourceDir, {recursive: true, force: true});
+}
 // eslint-disable-next-line no-console
 console.log(`Renamed "${sourceDir}" to "${targetDir}" successfully.`);
