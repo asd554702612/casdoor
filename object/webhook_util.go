@@ -15,6 +15,7 @@
 package object
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"reflect"
@@ -73,6 +74,46 @@ func sendWebhook(webhook *Webhook, record *Record, extendedUser *User) (int, str
 
 	for _, header := range webhook.Headers {
 		req.Header.Set(header.Name, header.Value)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, "", err
+	}
+
+	defer resp.Body.Close()
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, "", err
+	}
+	return resp.StatusCode, string(bodyBytes), err
+}
+
+func sendRawWebhook(webhook *Webhook, payload string, signatureSecret string) (int, string, error) {
+	client := &http.Client{Timeout: 30 * time.Second}
+
+	method := webhook.Method
+	if method == "" {
+		method = http.MethodPost
+	}
+	req, err := http.NewRequest(method, webhook.Url, bytes.NewReader([]byte(payload)))
+	if err != nil {
+		return 0, "", err
+	}
+
+	contentType := webhook.ContentType
+	if contentType == "" {
+		contentType = "application/json"
+	}
+	req.Header.Set("Content-Type", contentType)
+
+	for _, header := range webhook.Headers {
+		req.Header.Set(header.Name, header.Value)
+	}
+
+	req.Header.Set("X-Casdoor-Webhook-Event", ExternalPaymentEventPaid)
+	if signatureSecret != "" {
+		req.Header.Set("X-Casdoor-Webhook-Signature", BuildExternalPaymentWebhookSignature(signatureSecret, []byte(payload)))
 	}
 
 	resp, err := client.Do(req)

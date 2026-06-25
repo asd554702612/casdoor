@@ -137,6 +137,40 @@ func GetWebhookByOrganization(id string, organization string) (*Webhook, error) 
 	return webhook, nil
 }
 
+func GetPaymentWebhooks(application *Application) ([]*Webhook, error) {
+	if application == nil {
+		return []*Webhook{}, nil
+	}
+
+	applicationIds := []string{application.GetId(), application.Name}
+	seen := map[string]bool{}
+	res := []*Webhook{}
+	for _, applicationId := range applicationIds {
+		webhooks, err := getWebhooksByOrganization(applicationId)
+		if err != nil {
+			return nil, err
+		}
+		for _, webhook := range webhooks {
+			if webhook == nil || !webhook.IsEnabled {
+				continue
+			}
+			matched := false
+			for _, event := range webhook.Events {
+				if event == ExternalPaymentEventPaid {
+					matched = true
+					break
+				}
+			}
+			if !matched || seen[webhook.GetId()] {
+				continue
+			}
+			seen[webhook.GetId()] = true
+			res = append(res, webhook)
+		}
+	}
+	return res, nil
+}
+
 func UpdateWebhook(id string, webhook *Webhook, isGlobalAdmin bool, lang string) (bool, error) {
 	owner, name, err := util.GetOwnerAndNameFromIdWithError(id)
 	if err != nil {

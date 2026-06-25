@@ -401,6 +401,11 @@ func (a *Ormer) createTable() {
 		panic(err)
 	}
 
+	err = a.Engine.Sync2(new(ExternalPayment))
+	if err != nil {
+		panic(err)
+	}
+
 	err = a.Engine.Sync2(new(Order))
 	if err != nil {
 		panic(err)

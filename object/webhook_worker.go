@@ -134,6 +134,11 @@ func deliverWebhookEvent(event *WebhookEvent) {
 		return
 	}
 
+	if IsExternalPaymentEvent(event.EventType) {
+		deliverRawWebhookEvent(event, webhook)
+		return
+	}
+
 	// Parse the record from payload
 	var record Record
 	err = json.Unmarshal([]byte(event.Payload), &record)
@@ -166,6 +171,30 @@ func deliverWebhookEvent(event *WebhookEvent) {
 		addWebhookRecord(webhook, &record, statusCode, respBody, err)
 	}
 
+	updateWebhookDeliveryResult(event, webhook, statusCode, respBody, err)
+}
+
+func deliverRawWebhookEvent(event *WebhookEvent, webhook *Webhook) {
+	application, err := GetApplication(event.Organization)
+	if err != nil {
+		UpdateWebhookEventState(event, WebhookEventStatusFailed, 0, "", fmt.Errorf("get application: %w", err))
+		return
+	}
+	if application == nil {
+		UpdateWebhookEventState(event, WebhookEventStatusFailed, 0, "", fmt.Errorf("application not found"))
+		return
+	}
+	if application.ClientSecret == "" {
+		UpdateWebhookEventState(event, WebhookEventStatusFailed, 0, "", fmt.Errorf("application clientSecret cannot be empty"))
+		return
+	}
+
+	event.AttemptCount++
+	statusCode, respBody, err := sendRawWebhook(webhook, event.Payload, application.ClientSecret)
+	updateWebhookDeliveryResult(event, webhook, statusCode, respBody, err)
+}
+
+func updateWebhookDeliveryResult(event *WebhookEvent, webhook *Webhook, statusCode int, respBody string, err error) {
 	// Determine the result
 	if err == nil && statusCode >= 200 && statusCode < 300 {
 		// Success
