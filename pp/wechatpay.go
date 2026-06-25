@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/casdoor/casdoor/util"
 	"github.com/go-pay/gopay"
@@ -34,7 +35,7 @@ type WechatPaymentProvider struct {
 	AppId  string
 }
 
-func NewWechatPaymentProvider(mchId string, apiV3Key string, appId string, serialNo string, privateKey string) (*WechatPaymentProvider, error) {
+func NewWechatPaymentProvider(mchId string, apiV3Key string, appId string, serialNo string, privateKey string, publicKeyConfig ...string) (*WechatPaymentProvider, error) {
 	// https://pay.weixin.qq.com/docs/merchant/products/native-payment/preparation.html
 	// clientId => mchId
 	// clientSecret => apiV3Key
@@ -46,13 +47,21 @@ func NewWechatPaymentProvider(mchId string, apiV3Key string, appId string, seria
 		return &WechatPaymentProvider{}, nil
 	}
 
-	clientV3, err := wechat.NewClientV3(mchId, serialNo, apiV3Key, privateKey)
+	clientV3, err := wechat.NewClientV3(mchId, serialNo, apiV3Key, normalizeWechatPayPEM(privateKey, "PRIVATE KEY"))
 	if err != nil {
 		return nil, err
 	}
 
-	// AutoVerifySign: automatically fetch and verify platform certificate
-	err = clientV3.AutoVerifySign()
+	publicKeyId, publicKey := getWechatPayPublicKeyConfig(publicKeyConfig)
+	if publicKeyId != "" || publicKey != "" {
+		if publicKeyId == "" || publicKey == "" {
+			return nil, errors.New("wechat pay public key id and public key must be configured together")
+		}
+		err = clientV3.AutoVerifySignByPublicKey([]byte(normalizeWechatPayPEM(publicKey, "PUBLIC KEY")), publicKeyId)
+	} else {
+		// AutoVerifySign: automatically fetch and verify platform certificate.
+		err = clientV3.AutoVerifySign()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +72,40 @@ func NewWechatPaymentProvider(mchId string, apiV3Key string, appId string, seria
 	}
 
 	return pp, nil
+}
+
+func getWechatPayPublicKeyConfig(publicKeyConfig []string) (string, string) {
+	if len(publicKeyConfig) < 2 {
+		return "", ""
+	}
+	return strings.TrimSpace(publicKeyConfig[0]), strings.TrimSpace(publicKeyConfig[1])
+}
+
+func normalizeWechatPayPEM(value string, label string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" || strings.Contains(trimmed, "-----BEGIN ") {
+		return value
+	}
+
+	body := strings.Join(strings.Fields(trimmed), "")
+	if body == "" {
+		return value
+	}
+
+	var builder strings.Builder
+	builder.WriteString("-----BEGIN ")
+	builder.WriteString(label)
+	builder.WriteString("-----\n")
+	for len(body) > 64 {
+		builder.WriteString(body[:64])
+		builder.WriteByte('\n')
+		body = body[64:]
+	}
+	builder.WriteString(body)
+	builder.WriteString("\n-----END ")
+	builder.WriteString(label)
+	builder.WriteString("-----\n")
+	return builder.String()
 }
 
 func (pp *WechatPaymentProvider) Pay(r *PayReq) (*PayResp, error) {

@@ -15,6 +15,7 @@
 package object
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -372,7 +373,8 @@ func GetPaymentProvider(p *Provider) (pp.PaymentProvider, error) {
 	} else if typ == "GC" {
 		return pp.NewGcPaymentProvider(p.ClientId, p.ClientSecret, p.Host), nil
 	} else if typ == "WeChat Pay" {
-		pp, err := pp.NewWechatPaymentProvider(p.ClientId, p.ClientSecret, p.ClientId2, cert.Certificate, cert.PrivateKey)
+		publicKeyId, publicKey := getWechatPayPublicKeyConfigFromMetadata(p.Metadata)
+		pp, err := pp.NewWechatPaymentProvider(p.ClientId, p.ClientSecret, p.ClientId2, cert.Certificate, cert.PrivateKey, publicKeyId, publicKey)
 		if err != nil {
 			return nil, err
 		}
@@ -434,6 +436,25 @@ func GetPaymentProvider(p *Provider) (pp.PaymentProvider, error) {
 	} else {
 		return nil, fmt.Errorf("the payment provider type: %s is not supported", p.Type)
 	}
+}
+
+func getWechatPayPublicKeyConfigFromMetadata(metadata string) (string, string) {
+	if metadata == "" {
+		return "", ""
+	}
+
+	config := map[string]string{}
+	if err := json.Unmarshal([]byte(metadata), &config); err != nil {
+		return "", ""
+	}
+
+	publicKeyId := strings.TrimSpace(config["wechatPayPublicKeyId"])
+	if publicKeyId == "" {
+		publicKeyId = strings.TrimSpace(config["wechatPayPublicKeyID"])
+	}
+
+	publicKey := strings.TrimSpace(config["wechatPayPublicKey"])
+	return publicKeyId, publicKey
 }
 
 func (p *Provider) GetId() string {
