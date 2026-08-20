@@ -98,6 +98,12 @@ func InitAPI() {
 	web.Router("/api/upload-users", &controllers.ApiController{}, "POST:UploadUsers")
 	web.Router("/api/remove-user-from-group", &controllers.ApiController{}, "POST:RemoveUserFromGroup")
 	web.Router("/api/verify-identification", &controllers.ApiController{}, "POST:VerifyIdentification")
+	web.Router("/api/get-identity-verification", &controllers.ApiController{}, "GET:GetIdentityVerification")
+	web.Router("/api/get-identity-verifications", &controllers.ApiController{}, "GET:GetIdentityVerifications")
+	web.Router("/api/get-identity-verification-launch", &controllers.ApiController{}, "GET:GetIdentityVerificationLaunch")
+	web.Router("/api/submit-identity-verification", &controllers.ApiController{}, "POST:SubmitIdentityVerification")
+	web.Router("/api/review-identity-verification", &controllers.ApiController{}, "POST:ReviewIdentityVerification")
+	web.Router("/api/reset-identity-verification", &controllers.ApiController{}, "POST:ResetIdentityVerification")
 	web.Router("/api/impersonate-user", &controllers.ApiController{}, "POST:ImpersonateUser")
 	web.Router("/api/exit-impersonate-user", &controllers.ApiController{}, "POST:ExitImpersonateUser")
 
@@ -286,6 +292,7 @@ func InitAPI() {
 	web.Router("/api/invoice-payment", &controllers.ApiController{}, "POST:InvoicePayment")
 	web.Router("/api/external/payment/create", &controllers.ApiController{}, "POST:CreateExternalPayment")
 	web.Router("/api/external/payment/create-native", &controllers.ApiController{}, "POST:CreateExternalNativePayment")
+	web.Router("/api/external/user/sync", &controllers.ApiController{}, "POST:SyncExternalUser")
 
 	web.Router("/api/get-plans", &controllers.ApiController{}, "GET:GetPlans")
 	web.Router("/api/get-plan", &controllers.ApiController{}, "GET:GetPlan")

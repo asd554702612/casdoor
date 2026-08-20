@@ -148,6 +148,10 @@ export const OtherProviderInfo = {
       logo: `${StaticBaseUrl}/img/social_osonsms.svg`,
       url: "https://osonsms.com/",
     },
+    "IHuyi SMS": {
+      logo: `${StaticBaseUrl}/img/social_default.png`,
+      url: "https://www.ihuyi.com/",
+    },
     "Custom HTTP SMS": {
       logo: `${StaticBaseUrl}/img/social_default.png`,
       url: "https://casdoor.org/docs/provider/sms/overview",
@@ -1372,6 +1376,7 @@ export function getProviderTypeOptions(category) {
         {id: "Alibaba Cloud PNVS SMS", name: "Alibaba Cloud PNVS SMS"},
         {id: "Amazon SNS", name: "Amazon SNS"},
         {id: "Azure ACS", name: "Azure ACS"},
+        {id: "IHuyi SMS", name: "IHuyi SMS"},
         {id: "Custom HTTP SMS", name: "Custom HTTP SMS"},
         {id: "Mock SMS", name: "Mock SMS"},
         {id: "OSON SMS", name: "OSON SMS"},
@@ -1696,7 +1701,12 @@ export function renderHelmet(application) {
 
   // Application's title and favicon have higher priority than organization's values
   const title = application.title || application.organizationObj.displayName;
-  const favicon = application.favicon || application.organizationObj.favicon;
+  const configuredFavicon = application.favicon || application.organizationObj.favicon;
+  const isDefaultCasdoorFavicon = configuredFavicon === "" || configuredFavicon === undefined || configuredFavicon === null ||
+    configuredFavicon === "https://cdn.casdoor.com/static/favicon.png" ||
+    configuredFavicon === "https://cdn.casbin.org/img/favicon.png" ||
+    configuredFavicon === "https://cdn.casbin.org/img/casbin/favicon.ico";
+  const favicon = isDefaultCasdoorFavicon ? "/gepin-favicon.ico" : configuredFavicon;
 
   return (
     <Helmet>
@@ -1816,6 +1826,59 @@ export function getFromLink() {
     return "/";
   }
   return from;
+}
+
+function getPostPasswordUpdateAccount(account) {
+  if (!account?.owner || !account?.name) {
+    return null;
+  }
+
+  return {
+    owner: account.owner,
+    name: account.name,
+  };
+}
+
+export function savePostPasswordUpdateRedirect(redirect, account) {
+  const target = redirect ?? "";
+  const accountInfo = getPostPasswordUpdateAccount(account);
+  if (target === "" || target === "/" || target.startsWith("/account") || accountInfo === null) {
+    sessionStorage.removeItem("postPasswordUpdateRedirect");
+    return;
+  }
+
+  sessionStorage.setItem("postPasswordUpdateRedirect", JSON.stringify({
+    redirect: target,
+    owner: accountInfo.owner,
+    name: accountInfo.name,
+  }));
+}
+
+export function clearPostPasswordUpdateRedirect() {
+  sessionStorage.removeItem("postPasswordUpdateRedirect");
+}
+
+export function consumePostPasswordUpdateRedirect(account) {
+  const rawRedirect = sessionStorage.getItem("postPasswordUpdateRedirect");
+  if (rawRedirect === null || rawRedirect === "") {
+    return "";
+  }
+
+  sessionStorage.removeItem("postPasswordUpdateRedirect");
+
+  let redirectInfo;
+  try {
+    redirectInfo = JSON.parse(rawRedirect);
+  } catch {
+    return "";
+  }
+
+  const accountInfo = getPostPasswordUpdateAccount(account);
+  if (accountInfo === null || redirectInfo?.owner !== accountInfo.owner || redirectInfo?.name !== accountInfo.name) {
+    return "";
+  }
+
+  return redirectInfo?.redirect ?? "";
 }
 
 export function scrollToDiv(divId) {

@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/beego/beego/v2/core/utils/pagination"
 	"github.com/casdoor/casdoor/conf"
@@ -892,44 +893,43 @@ func (c *ApiController) VerifyIdentification() {
 		c.ResponseError(fmt.Sprintf(c.T("general:The user: %s doesn't exist"), util.GetId(owner, name)))
 		return
 	}
+	currentUser := c.getCurrentUser()
+	if currentUser != nil && currentUser.IsAdmin && !currentUser.IsGlobalAdmin() && user.Owner != currentUser.Owner {
+		c.ResponseError(c.T("auth:Unauthorized operation"))
+		return
+	}
 
 	if user.IdCard == "" || user.IdCardType == "" || user.RealName == "" {
 		c.ResponseError(c.T("user:ID card information and real name are required"))
 		return
 	}
+	if err = object.ValidateIdentityVerificationInput(user.IdCardType, user.IdCard, user.RealName); err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
 
-	if user.IsVerified {
+	if object.IsIdentityVerified(user) {
 		c.ResponseError(c.T("user:User is already verified"))
 		return
 	}
 
+	application, err := object.GetApplicationByUser(user)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	if application == nil {
+		c.ResponseError(c.T("user:No application found for user"))
+		return
+	}
+
 	var provider *object.Provider
-	// If provider not specified, find suitable IDV provider from user's application
-	if providerName == "" {
-		application, err := object.GetApplicationByUser(user)
-		if err != nil {
-			c.ResponseError(err.Error())
+	if providerName != "" {
+		if !c.IsAdmin() {
+			c.ResponseError(c.T("auth:Unauthorized operation"))
 			return
 		}
-
-		if application == nil {
-			c.ResponseError(c.T("user:No application found for user"))
-			return
-		}
-
-		// Find IDV provider from application
-		idvProvider, err := object.GetIdvProviderByApplication(util.GetId(application.Owner, application.Name), "false", c.GetAcceptLanguage())
-		if err != nil {
-			c.ResponseError(err.Error())
-			return
-		}
-
-		if idvProvider == nil {
-			c.ResponseError(c.T("provider:No ID Verification provider configured"))
-			return
-		}
-		provider = idvProvider
-	} else {
 		provider, err = object.GetProvider(providerName)
 		if err != nil {
 			c.ResponseError(err.Error())
@@ -945,32 +945,47 @@ func (c *ApiController) VerifyIdentification() {
 			c.ResponseError(c.T("provider:Provider is not an ID Verification provider"))
 			return
 		}
+		if currentUser != nil && !currentUser.IsGlobalAdmin() && provider.Owner != currentUser.Owner {
+			c.ResponseError(c.T("auth:Unauthorized operation"))
+			return
+		}
+		if !application.HasProvider(provider) {
+			c.ResponseError(c.T("auth:Unauthorized operation"))
+			return
+		}
 	}
 
-	idvProvider := object.GetIdvProviderFromProvider(provider)
-	if idvProvider == nil {
-		c.ResponseError(c.T("provider:Failed to initialize ID Verification provider"))
+	now := time.Now()
+	result := c.evaluateVerifyIdentificationRules(user, application, provider, now)
+	rules := object.NormalizeIdentityVerificationRules(application.IdentityVerificationRules)
+	if !rules.Enabled {
+		if result.Status != object.IdentityVerificationStatusApproved {
+			c.ResponseError(result.Reason)
+			return
+		}
+		columns, err := object.ReviewIdentityVerification(user, object.IdentityVerificationStatusApproved, "ID Verification provider", "", now)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+		_, err = object.UpdateUser(user.GetId(), user, columns, true)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+		c.ResponseOk(user.RealName)
 		return
 	}
 
-	verified, err := idvProvider.VerifyIdentity(user.IdCardType, user.IdCard, user.RealName)
+	err = c.applyIdentityVerificationRuleResult(user, result, now)
 	if err != nil {
 		c.ResponseError(err.Error())
 		return
 	}
 
-	if !verified {
-		c.ResponseError(c.T("user:Identity verification failed"))
+	if result.Status == object.IdentityVerificationStatusApproved {
+		c.ResponseOk(user.RealName)
 		return
 	}
-
-	// Set IsVerified to true upon successful verification
-	user.IsVerified = true
-	_, err = object.UpdateUser(user.GetId(), user, []string{"is_verified"}, false)
-	if err != nil {
-		c.ResponseError(err.Error())
-		return
-	}
-
-	c.ResponseOk(user.RealName)
+	c.ResponseError(result.Reason)
 }

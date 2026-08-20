@@ -25,6 +25,7 @@ export const NavItemTree = ({disabled, checkedKeys, defaultExpandedKeys, onCheck
             {title: i18next.t("general:Groups"), key: "/groups"},
             {title: i18next.t("general:Users"), key: "/users"},
             {title: i18next.t("general:Invitations"), key: "/invitations"},
+            {title: "实名认证管理", key: "/identity-verification/admin"},
           ],
         },
         {

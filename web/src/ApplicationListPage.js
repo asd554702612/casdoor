@@ -52,6 +52,17 @@ class ApplicationListPage extends BaseListPage {
       providers: [
         {name: "provider_captcha_default", canSignUp: false, canSignIn: false, canUnlink: false, prompted: false, signupGroup: "", rule: ""},
       ],
+      identityVerificationRules: {
+        enabled: true,
+        requireIdvProvider: false,
+        allowedIdCardTypes: ["CN_ID"],
+        trustedProviderTypes: ["Alibaba Cloud"],
+        under16Action: "manualReview",
+        providerFailureAction: "reject",
+        providerErrorAction: "manualReview",
+        unsupportedIdCardAction: "reject",
+        invalidIdCardAction: "reject",
+      },
       SigninMethods: [
         {name: "Password", displayName: "Password", rule: "All"},
         {name: "Verification code", displayName: "Verification code", rule: "All"},

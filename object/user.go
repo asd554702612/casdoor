@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/casdoor/casdoor/conf"
 	"github.com/casdoor/casdoor/faceId"
@@ -59,59 +60,64 @@ type User struct {
 	UpdatedTime string `xorm:"varchar(100)" json:"updatedTime"`
 	DeletedTime string `xorm:"varchar(100)" json:"deletedTime"`
 
-	Id                   string     `xorm:"varchar(100) index" json:"id"`
-	ExternalId           string     `xorm:"varchar(100) index" json:"externalId"`
-	Type                 string     `xorm:"varchar(100)" json:"type"`
-	Password             string     `xorm:"varchar(150)" json:"password"`
-	PasswordSalt         string     `xorm:"varchar(100)" json:"passwordSalt"`
-	PasswordType         string     `xorm:"varchar(100)" json:"passwordType"`
-	DisplayName          string     `xorm:"varchar(100)" json:"displayName"`
-	FirstName            string     `xorm:"varchar(100)" json:"firstName"`
-	LastName             string     `xorm:"varchar(100)" json:"lastName"`
-	Avatar               string     `xorm:"text" json:"avatar"`
-	AvatarType           string     `xorm:"varchar(100)" json:"avatarType"`
-	PermanentAvatar      string     `xorm:"varchar(500)" json:"permanentAvatar"`
-	Email                string     `xorm:"varchar(100) index" json:"email"`
-	EmailVerified        bool       `json:"emailVerified"`
-	Phone                string     `xorm:"varchar(100) index" json:"phone"`
-	CountryCode          string     `xorm:"varchar(6)" json:"countryCode"`
-	Region               string     `xorm:"varchar(100)" json:"region"`
-	Location             string     `xorm:"varchar(100)" json:"location"`
-	Address              []string   `json:"address"`
-	Addresses            []*Address `xorm:"addresses blob" json:"addresses"`
-	Affiliation          string     `xorm:"varchar(100)" json:"affiliation"`
-	Title                string     `xorm:"varchar(100)" json:"title"`
-	IdCardType           string     `xorm:"varchar(100)" json:"idCardType"`
-	IdCard               string     `xorm:"varchar(100) index" json:"idCard"`
-	RealName             string     `xorm:"varchar(100)" json:"realName"`
-	IsVerified           bool       `json:"isVerified"`
-	Homepage             string     `xorm:"varchar(100)" json:"homepage"`
-	Bio                  string     `xorm:"varchar(100)" json:"bio"`
-	Tag                  string     `xorm:"varchar(100)" json:"tag"`
-	Language             string     `xorm:"varchar(100)" json:"language"`
-	Gender               string     `xorm:"varchar(100)" json:"gender"`
-	Birthday             string     `xorm:"varchar(100)" json:"birthday"`
-	Education            string     `xorm:"varchar(100)" json:"education"`
-	Score                int        `json:"score"`
-	Karma                int        `json:"karma"`
-	Ranking              int        `json:"ranking"`
-	Balance              float64    `json:"balance"`
-	BalanceCredit        float64    `json:"balanceCredit"`
-	Currency             string     `xorm:"varchar(100)" json:"currency"`
-	BalanceCurrency      string     `xorm:"varchar(100)" json:"balanceCurrency"`
-	IsDefaultAvatar      bool       `json:"isDefaultAvatar"`
-	IsOnline             bool       `json:"isOnline"`
-	IsAdmin              bool       `json:"isAdmin"`
-	IsForbidden          bool       `json:"isForbidden"`
-	IsDeleted            bool       `json:"isDeleted"`
-	SignupApplication    string     `xorm:"varchar(100)" json:"signupApplication"`
-	Hash                 string     `xorm:"varchar(100)" json:"hash"`
-	PreHash              string     `xorm:"varchar(100)" json:"preHash"`
-	RegisterType         string     `xorm:"varchar(100)" json:"registerType"`
-	RegisterSource       string     `xorm:"varchar(100)" json:"registerSource"`
-	AccessToken          string     `xorm:"mediumtext" json:"accessToken"`
-	OriginalToken        string     `xorm:"mediumtext" json:"originalToken"`
-	OriginalRefreshToken string     `xorm:"mediumtext" json:"originalRefreshToken"`
+	Id                                string     `xorm:"varchar(100) index" json:"id"`
+	ExternalId                        string     `xorm:"varchar(100) index" json:"externalId"`
+	Type                              string     `xorm:"varchar(100)" json:"type"`
+	Password                          string     `xorm:"varchar(150)" json:"password"`
+	PasswordSalt                      string     `xorm:"varchar(100)" json:"passwordSalt"`
+	PasswordType                      string     `xorm:"varchar(100)" json:"passwordType"`
+	DisplayName                       string     `xorm:"varchar(100)" json:"displayName"`
+	FirstName                         string     `xorm:"varchar(100)" json:"firstName"`
+	LastName                          string     `xorm:"varchar(100)" json:"lastName"`
+	Avatar                            string     `xorm:"text" json:"avatar"`
+	AvatarType                        string     `xorm:"varchar(100)" json:"avatarType"`
+	PermanentAvatar                   string     `xorm:"varchar(500)" json:"permanentAvatar"`
+	Email                             string     `xorm:"varchar(100) index" json:"email"`
+	EmailVerified                     bool       `json:"emailVerified"`
+	Phone                             string     `xorm:"varchar(100) index" json:"phone"`
+	CountryCode                       string     `xorm:"varchar(6)" json:"countryCode"`
+	Region                            string     `xorm:"varchar(100)" json:"region"`
+	Location                          string     `xorm:"varchar(100)" json:"location"`
+	Address                           []string   `json:"address"`
+	Addresses                         []*Address `xorm:"addresses blob" json:"addresses"`
+	Affiliation                       string     `xorm:"varchar(100)" json:"affiliation"`
+	Title                             string     `xorm:"varchar(100)" json:"title"`
+	IdCardType                        string     `xorm:"varchar(100)" json:"idCardType"`
+	IdCard                            string     `xorm:"varchar(100) index" json:"idCard"`
+	RealName                          string     `xorm:"varchar(100)" json:"realName"`
+	IsVerified                        bool       `json:"isVerified"`
+	IdentityVerificationStatus        string     `xorm:"varchar(100)" json:"identityVerificationStatus"`
+	IdentityVerificationReason        string     `xorm:"varchar(500)" json:"identityVerificationReason"`
+	IdentityVerificationReviewer      string     `xorm:"varchar(100)" json:"identityVerificationReviewer"`
+	IdentityVerificationReviewedTime  string     `xorm:"varchar(100)" json:"identityVerificationReviewedTime"`
+	IdentityVerificationSubmittedTime string     `xorm:"varchar(100)" json:"identityVerificationSubmittedTime"`
+	Homepage                          string     `xorm:"varchar(100)" json:"homepage"`
+	Bio                               string     `xorm:"varchar(100)" json:"bio"`
+	Tag                               string     `xorm:"varchar(100)" json:"tag"`
+	Language                          string     `xorm:"varchar(100)" json:"language"`
+	Gender                            string     `xorm:"varchar(100)" json:"gender"`
+	Birthday                          string     `xorm:"varchar(100)" json:"birthday"`
+	Education                         string     `xorm:"varchar(100)" json:"education"`
+	Score                             int        `json:"score"`
+	Karma                             int        `json:"karma"`
+	Ranking                           int        `json:"ranking"`
+	Balance                           float64    `json:"balance"`
+	BalanceCredit                     float64    `json:"balanceCredit"`
+	Currency                          string     `xorm:"varchar(100)" json:"currency"`
+	BalanceCurrency                   string     `xorm:"varchar(100)" json:"balanceCurrency"`
+	IsDefaultAvatar                   bool       `json:"isDefaultAvatar"`
+	IsOnline                          bool       `json:"isOnline"`
+	IsAdmin                           bool       `json:"isAdmin"`
+	IsForbidden                       bool       `json:"isForbidden"`
+	IsDeleted                         bool       `json:"isDeleted"`
+	SignupApplication                 string     `xorm:"varchar(100)" json:"signupApplication"`
+	Hash                              string     `xorm:"varchar(100)" json:"hash"`
+	PreHash                           string     `xorm:"varchar(100)" json:"preHash"`
+	RegisterType                      string     `xorm:"varchar(100)" json:"registerType"`
+	RegisterSource                    string     `xorm:"varchar(100)" json:"registerSource"`
+	AccessToken                       string     `xorm:"mediumtext" json:"accessToken"`
+	OriginalToken                     string     `xorm:"mediumtext" json:"originalToken"`
+	OriginalRefreshToken              string     `xorm:"mediumtext" json:"originalRefreshToken"`
 
 	CreatedIp      string `xorm:"varchar(100)" json:"createdIp"`
 	LastSigninTime string `xorm:"varchar(100)" json:"lastSigninTime"`
@@ -856,7 +862,7 @@ func UpdateUser(id string, user *User, columns []string, isAdmin bool) (bool, er
 	if len(columns) == 0 {
 		columns = []string{
 			"owner", "display_name", "avatar", "first_name", "last_name",
-			"location", "address", "addresses", "country_code", "region", "language", "affiliation", "title", "id_card_type", "id_card", "homepage", "bio", "tag", "language", "gender", "birthday", "education", "score", "karma", "ranking", "signup_application", "register_type", "register_source",
+			"location", "address", "addresses", "country_code", "region", "language", "affiliation", "title", "id_card_type", "id_card", "real_name", "homepage", "bio", "tag", "language", "gender", "birthday", "education", "score", "karma", "ranking", "signup_application", "register_type", "register_source",
 			"hash", "is_default_avatar", "properties", "webauthnCredentials", "mfa_items", "last_change_password_time", "managedAccounts", "face_ids", "mfaAccounts",
 			"signin_wrong_times", "last_signin_wrong_time", "groups", "mfa_phone_enabled", "mfa_email_enabled", "email_verified",
 			"github", "google", "qq", "wechat", "facebook", "dingtalk", "weibo", "gitee", "linkedin", "wecom", "lark", "gitlab", "adfs",
@@ -879,6 +885,12 @@ func UpdateUser(id string, user *User, columns []string, isAdmin bool) (bool, er
 
 	if len(user.DeletedTime) > 0 {
 		columns = append(columns, "deleted_time")
+	}
+
+	for _, column := range ApplyIdentityDataChange(oldUser, user, time.Now()) {
+		if !util.InSlice(columns, column) {
+			columns = append(columns, column)
+		}
 	}
 
 	if util.InSlice(columns, "groups") {
@@ -1251,7 +1263,7 @@ func GetUserInfo(user *User, scope string, aud string, host string) (*Userinfo, 
 
 	if strings.Contains(scope, "profile") {
 		resp.RealName = user.RealName
-		resp.IsVerified = user.IsVerified
+		resp.IsVerified = IsIdentityVerified(user)
 	}
 
 	return &resp, nil

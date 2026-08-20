@@ -124,11 +124,12 @@ import SiteListPage from "./SiteListPage";
 import SiteEditPage from "./SiteEditPage";
 import RuleListPage from "./RuleListPage";
 import RuleEditPage from "./RuleEditPage";
+import IdentityVerificationAdminPage from "./IdentityVerificationAdminPage";
 
 function getMenuParentKey(uri) {
   if (!uri) {return null;}
   if (uri === "/" || uri.includes("/shortcuts") || uri.includes("/apps")) {return "/home";}
-  if (uri.includes("/organizations") || uri.includes("/trees") || uri.includes("/groups") || uri.includes("/users") || uri.includes("/invitations")) {return "/orgs";}
+  if (uri.includes("/organizations") || uri.includes("/trees") || uri.includes("/groups") || uri.includes("/users") || uri.includes("/invitations") || uri.includes("/identity-verification/admin")) {return "/orgs";}
   if (uri.includes("/applications") || uri.includes("/providers") || uri.includes("/resources") || uri.includes("/certs") || uri.includes("/keys")) {return "/identity";}
   if (uri.includes("/agents") || uri.includes("/servers") || uri.includes("/server-store") || uri.includes("/entries") || uri.includes("/sites") || uri.includes("/rules")) {return "/gateway";}
   if (uri.includes("/roles") || uri.includes("/permissions") || uri.includes("/models") || uri.includes("/adapters") || uri.includes("/enforcers")) {return "/auth";}
@@ -189,6 +190,7 @@ function ManagementPage(props) {
       .then((res) => {
         if (res.status === "ok") {
           const owner = props.account.owner;
+          Setting.clearPostPasswordUpdateRedirect();
           props.setLogoutState();
           clearWeb3AuthToken();
           Setting.showMessage("success", i18next.t("application:Logged out successfully"));
@@ -230,6 +232,9 @@ function ManagementPage(props) {
       items.push(Setting.getItem(<><SettingOutlined />&nbsp;&nbsp;{i18next.t("account:My Account")}</>,
         "/account"
       ));
+      items.push(Setting.getItem(<><CheckCircleOutlined />&nbsp;&nbsp;我的实名认证</>,
+        "/identity-verification/submit"
+      ));
     }
     const curCookie = Cookie.parse(document.cookie);
     if (curCookie["impersonateUser"]) {
@@ -243,6 +248,8 @@ function ManagementPage(props) {
     const onClick = (e) => {
       if (e.key === "/account") {
         props.history.push("/account");
+      } else if (e.key === "/identity-verification/submit") {
+        props.history.push("/identity-verification/submit");
       } else if (e.key === "/subscription") {
         props.history.push("/subscription");
       } else if (e.key === "/logout") {
@@ -250,6 +257,7 @@ function ManagementPage(props) {
       } else if (e.key === "/exit-impersonation") {
         UserBackend.exitImpersonateUser(props.account.owner, props.account.name).then((res) => {
           if (res.status === "ok") {
+            Setting.clearPostPasswordUpdateRedirect();
             Setting.showMessage("success", i18next.t("account:Exit impersonation"));
             Setting.goToLinkSoft({props}, "/");
             window.location.reload();
@@ -365,7 +373,8 @@ function ManagementPage(props) {
       Setting.getItem(<Link to="/groups">{i18next.t("general:Groups")}</Link>, "/groups"),
       Setting.getItem(<Link to="/users">{i18next.t("general:Users")}</Link>, "/users"),
       Setting.getItem(<Link to="/invitations">{i18next.t("general:Invitations")}</Link>, "/invitations"),
-    ]));
+      Setting.isLocalAdminUser(props.account) ? Setting.getItem(<Link to="/identity-verification/admin">实名认证管理</Link>, "/identity-verification/admin") : null,
+    ].filter(item => item !== null)));
 
     res.push(Setting.getItem(<Link style={{color: textColor}} to="/applications">{i18next.t("general:Identity")}</Link>, "/identity", <LockOutlined />, [
       Setting.getItem(<Link to="/applications">{i18next.t("general:Applications")}</Link>, "/applications"),
@@ -490,7 +499,7 @@ function ManagementPage(props) {
   function renderLoginIfNotLoggedIn(component) {
     if (props.account === null) {
       const lastLoginOrg = localStorage.getItem("lastLoginOrg");
-      sessionStorage.setItem("from", window.location.pathname);
+      sessionStorage.setItem("from", `${window.location.pathname}${window.location.search}`);
       if (lastLoginOrg) {
         return <Redirect to={`/login/${lastLoginOrg}`} />;
       } else {
@@ -502,6 +511,7 @@ function ManagementPage(props) {
       if (window.location.pathname === "/account") {
         return component;
       } else {
+        Setting.savePostPasswordUpdateRedirect(`${window.location.pathname}${window.location.search}`, props.account);
         return <Redirect to="/account" />;
       }
     } else {
@@ -519,6 +529,7 @@ function ManagementPage(props) {
         <Route exact path="/apps" render={(props) => renderLoginIfNotLoggedIn(<AppListPage account={account} {...props} />)} />
         <Route exact path="/shortcuts" render={(props) => renderLoginIfNotLoggedIn(<ShortcutsPage account={account} {...props} />)} />
         <Route exact path="/account" render={(props) => renderLoginIfNotLoggedIn(<AccountPage account={account} {...props} />)} />
+        <Route exact path="/identity-verification/admin" render={(props) => renderLoginIfNotLoggedIn(<IdentityVerificationAdminPage account={account} {...props} />)} />
         <Route exact path="/organizations" render={(props) => renderLoginIfNotLoggedIn(<OrganizationListPage account={account} {...props} />)} />
         <Route exact path="/organizations/:organizationName" render={(props) => renderLoginIfNotLoggedIn(<OrganizationEditPage account={account} onChangeTheme={onChangeTheme} {...props} />)} />
         <Route exact path="/organizations/:organizationName/users" render={(props) => renderLoginIfNotLoggedIn(<UserListPage account={account} {...props} />)} />

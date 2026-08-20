@@ -127,13 +127,13 @@
   ],
   "applications": [
     {
-      "owner": "",
-      "name": "",
-      "displayName": "",
+      "owner": "admin",
+      "name": "app-built-in",
+      "displayName": "Casdoor",
       "logo": "",
       "homepageUrl": "",
-      "organization": "",
-      "cert": "",
+      "organization": "built-in",
+      "cert": "cert-built-in",
       "enablePassword": true,
       "enableSignUp": true,
       "disableSignin": false,
@@ -141,7 +141,7 @@
       "clientSecret": "",
       "providers": [
         {
-          "name": "",
+          "name": "postal-email",
           "canSignUp": true,
           "canSignIn": true,
           "canUnlink": false,
@@ -158,7 +158,7 @@
         {
           "name": "Verification code",
           "displayName": "Verification code",
-          "rule": "All"
+          "rule": "Email only"
         },
         {
           "name": "WebAuthn",
@@ -274,11 +274,18 @@
   ],
   "providers": [
     {
-      "owner": "",
-      "name": "",
-      "displayName": "",
-      "category": "",
-      "type": ""
+      "owner": "admin",
+      "name": "postal-email",
+      "displayName": "Postal Email",
+      "category": "Email",
+      "type": "Default",
+      "clientId": "gepin-keji/main",
+      "clientSecret": "REPLACE_WITH_SMTP_PASSWORD",
+      "clientId2": "gpkj@email.gepinkeji.com",
+      "clientSecret2": "Postal",
+      "host": "mail.gepinkeji.com",
+      "port": 25,
+      "sslMode": "Disable"
     }
   ],
   "certs": [

@@ -773,6 +773,15 @@ func CheckPermissionForUpdateUser(oldUser, newUser *User, isAdmin bool, allowDis
 		}
 	}
 
+	if oldUser.RealName != newUser.RealName {
+		item := GetAccountItemByName("Real name", organization)
+		if !userVisible(isAdmin, item) {
+			newUser.RealName = oldUser.RealName
+		} else {
+			itemsChanged = append(itemsChanged, item)
+		}
+	}
+
 	if oldUser.IdCardType != newUser.IdCardType {
 		item := GetAccountItemByName("ID card type", organization)
 		if !userVisible(isAdmin, item) {
@@ -780,6 +789,15 @@ func CheckPermissionForUpdateUser(oldUser, newUser *User, isAdmin bool, allowDis
 		} else {
 			itemsChanged = append(itemsChanged, item)
 		}
+	}
+
+	if !isAdmin {
+		newUser.IsVerified = oldUser.IsVerified
+		newUser.IdentityVerificationStatus = oldUser.IdentityVerificationStatus
+		newUser.IdentityVerificationReason = oldUser.IdentityVerificationReason
+		newUser.IdentityVerificationReviewer = oldUser.IdentityVerificationReviewer
+		newUser.IdentityVerificationReviewedTime = oldUser.IdentityVerificationReviewedTime
+		newUser.IdentityVerificationSubmittedTime = oldUser.IdentityVerificationSubmittedTime
 	}
 
 	oldUserPropertiesJson, _ := json.Marshal(oldUser.Properties)

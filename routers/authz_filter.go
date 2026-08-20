@@ -335,7 +335,7 @@ func ApiFilter(ctx *context.Context) {
 
 	method := ctx.Request.Method
 	urlPath := getUrlPath(ctx)
-	if urlPath == "/api/external/payment/create" || urlPath == "/api/external/payment/create-native" {
+	if urlPath == "/api/external/payment/create" || urlPath == "/api/external/payment/create-native" || urlPath == "/api/external/user/sync" {
 		return
 	}
 	extraInfo := getExtraInfo(ctx, urlPath)

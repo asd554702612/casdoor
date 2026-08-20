@@ -206,6 +206,7 @@ class PromptPage extends React.Component {
     AuthBackend.logout()
       .then((res) => {
         if (res.status === "ok") {
+          Setting.clearPostPasswordUpdateRedirect();
           this.onUpdateAccount(null);
         } else {
           Setting.showMessage("error", res.msg);

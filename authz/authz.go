@@ -98,6 +98,9 @@ p, *, *, POST, /api/v1/metrics, *, *
 p, *, *, POST, /api/v1/logs, *, *
 p, *, *, POST, /api/reset-email-or-phone, *, *
 p, *, *, POST, /api/upload-resource, *, *
+p, *, *, GET, /api/get-identity-verification, *, *
+p, *, *, GET, /api/get-identity-verification-launch, *, *
+p, *, *, POST, /api/submit-identity-verification, *, *
 p, *, *, GET, /.well-known/openid-configuration, *, *
 p, *, *, GET, /.well-known/oauth-authorization-server, *, *
 p, *, *, GET, /.well-known/oauth-protected-resource, *, *

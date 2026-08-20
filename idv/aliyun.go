@@ -104,7 +104,7 @@ func (provider *AlibabaCloudIdvProvider) VerifyIdentity(idCardType string, idCar
 		if *response.Body.ResultObject.BizCode == "1" {
 			return true, nil
 		}
-		return false, fmt.Errorf("identity verification failed: BizCode=%s", *response.Body.ResultObject.BizCode)
+		return false, nil
 	}
 
 	return false, fmt.Errorf("identity verification failed: missing result")

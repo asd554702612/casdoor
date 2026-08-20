@@ -84,6 +84,13 @@ class AuthCallback extends React.Component {
     Setting.checkLoginMfa(res, body, {"service": casService}, handleCasLogin, this);
   }
 
+  redirectToPasswordUpdate(signinUrl) {
+    if (signinUrl !== null && signinUrl !== undefined && signinUrl !== "") {
+      sessionStorage.setItem("signinUrl", signinUrl);
+    }
+    this.props.onLoginSuccess(null, signinUrl);
+  }
+
   handleOAuthLoginResult(res, body, innerParams, queryString, applicationName, responseType) {
     const oAuthParams = Util.getOAuthGetParameters(innerParams);
     const concatChar = oAuthParams?.redirectUri?.includes("?") ? "&" : "?";
@@ -94,8 +101,7 @@ class AuthCallback extends React.Component {
     const handleLogin = (res) => {
       if (responseType === "login") {
         if (res.data3) {
-          sessionStorage.setItem("signinUrl", signinUrl);
-          Setting.goToLinkSoft(this, "/account");
+          this.redirectToPasswordUpdate(signinUrl);
           return;
         }
         Setting.showMessage("success", "Logged in successfully");
@@ -103,8 +109,7 @@ class AuthCallback extends React.Component {
         Setting.goToLink(link);
       } else if (responseType === "code") {
         if (res.data3) {
-          sessionStorage.setItem("signinUrl", signinUrl);
-          Setting.goToLinkSoft(this, "/account");
+          this.redirectToPasswordUpdate(signinUrl);
           return;
         }
 
@@ -120,8 +125,7 @@ class AuthCallback extends React.Component {
         }
       } else if (responseTypes.includes("token") || responseTypes.includes("id_token")) {
         if (res.data3) {
-          sessionStorage.setItem("signinUrl", signinUrl);
-          Setting.goToLinkSoft(this, "/account");
+          this.redirectToPasswordUpdate(signinUrl);
           return;
         }
 
@@ -145,6 +149,11 @@ class AuthCallback extends React.Component {
         }
         Setting.goToLinkSoftOrJumpSelf(this, from);
       } else if (responseType === "saml") {
+        if (res.data3) {
+          this.redirectToPasswordUpdate(signinUrl);
+          return;
+        }
+
         if (res.data2.method === "POST") {
           this.setState({
             samlResponse: res.data,
@@ -152,11 +161,6 @@ class AuthCallback extends React.Component {
             relayState: oAuthParams.relayState,
           });
         } else {
-          if (res.data3) {
-            sessionStorage.setItem("signinUrl", signinUrl);
-            Setting.goToLinkSoft(this, "/account");
-            return;
-          }
           const SAMLResponse = res.data;
           const redirectUri = res.data2.redirectUrl;
           Setting.goToLink(`${redirectUri}${redirectUri.includes("?") ? "&" : "?"}SAMLResponse=${encodeURIComponent(SAMLResponse)}&RelayState=${oAuthParams.relayState}`);

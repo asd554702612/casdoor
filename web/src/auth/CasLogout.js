@@ -43,6 +43,7 @@ class CasLogout extends React.Component {
           if (accountRes.status === "ok") {
             AuthBackend.logout().then((logoutRes) => {
               if (logoutRes.status === "ok") {
+                Setting.clearPostPasswordUpdateRedirect();
                 logoutTimeOut(logoutRes.data2);
               } else {
                 Setting.showMessage("error", `${i18next.t("general:Failed to log out")}: ${logoutRes.msg}`);
@@ -66,6 +67,7 @@ class CasLogout extends React.Component {
     AuthBackend.logout()
       .then((res) => {
         if (res.status === "ok") {
+          Setting.clearPostPasswordUpdateRedirect();
           logoutTimeOut(res.data2);
         } else {
           Setting.showMessage("error", `${i18next.t("general:Failed to log out")}: ${res.msg}`);

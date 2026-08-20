@@ -67,6 +67,32 @@ import PaginateSelect from "./common/PaginateSelect";
 
 const {Option} = Select;
 
+const IdentityVerificationRuleAction = {
+  reject: "reject",
+  manualReview: "manualReview",
+};
+
+const DefaultIdentityVerificationRules = {
+  enabled: true,
+  requireIdvProvider: false,
+  allowedIdCardTypes: ["CN_ID"],
+  trustedProviderTypes: ["Alibaba Cloud"],
+  under16Action: IdentityVerificationRuleAction.manualReview,
+  providerFailureAction: IdentityVerificationRuleAction.reject,
+  providerErrorAction: IdentityVerificationRuleAction.manualReview,
+  unsupportedIdCardAction: IdentityVerificationRuleAction.reject,
+  invalidIdCardAction: IdentityVerificationRuleAction.reject,
+  unsupportedIdCardReason: "Unsupported identity document type",
+  invalidIdCardReason: "Invalid identity document number",
+  under16Reason: "User is under 16 years old",
+  providerFailureReason: "Identity verification provider rejected the identity data",
+  providerErrorReason: "Identity verification provider is unavailable",
+  providerRequiredReason: "No ID Verification provider is configured",
+  providerUntrustedReason: "ID Verification provider is not trusted for automatic approval",
+  autoApproveReason: "Automatically approved by identity verification rules",
+  manualReviewReason: "Manual identity verification review is required",
+};
+
 const template = `<style>
   .login-panel {
     padding: 40px 70px 0 70px;
@@ -178,6 +204,7 @@ class ApplicationEditPage extends React.Component {
         if (application.tags === null || application.tags === undefined) {
           application.tags = [];
         }
+        application.identityVerificationRules = this.normalizeIdentityVerificationRules(application.identityVerificationRules);
 
         this.setState({
           application: application,
@@ -252,6 +279,60 @@ class ApplicationEditPage extends React.Component {
     return value;
   }
 
+  normalizeStringList(values, defaultValues) {
+    if (!Array.isArray(values)) {
+      return [...defaultValues];
+    }
+    const res = [];
+    values.forEach(value => {
+      value = `${value || ""}`.trim();
+      if (value !== "" && !res.includes(value)) {
+        res.push(value);
+      }
+    });
+    return res.length === 0 ? [...defaultValues] : res;
+  }
+
+  normalizeIdentityRuleAction(action, defaultAction) {
+    return Object.values(IdentityVerificationRuleAction).includes(action) ? action : defaultAction;
+  }
+
+  normalizeIdentityVerificationRules(rules) {
+    const source = rules || {};
+    return {
+      ...DefaultIdentityVerificationRules,
+      ...source,
+      requireIdvProvider: source.requireIdvProvider === true,
+      allowedIdCardTypes: this.normalizeStringList(source.allowedIdCardTypes, DefaultIdentityVerificationRules.allowedIdCardTypes),
+      trustedProviderTypes: this.normalizeStringList(source.trustedProviderTypes, DefaultIdentityVerificationRules.trustedProviderTypes),
+      under16Action: this.normalizeIdentityRuleAction(source.under16Action, DefaultIdentityVerificationRules.under16Action),
+      providerFailureAction: this.normalizeIdentityRuleAction(source.providerFailureAction, DefaultIdentityVerificationRules.providerFailureAction),
+      providerErrorAction: this.normalizeIdentityRuleAction(source.providerErrorAction, DefaultIdentityVerificationRules.providerErrorAction),
+      unsupportedIdCardAction: this.normalizeIdentityRuleAction(source.unsupportedIdCardAction, DefaultIdentityVerificationRules.unsupportedIdCardAction),
+      invalidIdCardAction: this.normalizeIdentityRuleAction(source.invalidIdCardAction, DefaultIdentityVerificationRules.invalidIdCardAction),
+    };
+  }
+
+  updateIdentityVerificationRuleField(key, value) {
+    const rules = this.normalizeIdentityVerificationRules(this.state.application.identityVerificationRules);
+    rules[key] = value;
+    this.updateApplicationField("identityVerificationRules", this.normalizeIdentityVerificationRules(rules));
+  }
+
+  hasIdvProvider(application) {
+    return (application.providers || []).some(providerItem => {
+      const provider = providerItem.provider || Setting.getArrayItem(this.state.providers, "name", providerItem.name);
+      return provider?.category === "ID Verification";
+    });
+  }
+
+  hasTrustedIdvProvider(application, rules) {
+    return (application.providers || []).some(providerItem => {
+      const provider = providerItem.provider || Setting.getArrayItem(this.state.providers, "name", providerItem.name);
+      return provider?.category === "ID Verification" && rules.trustedProviderTypes.includes(provider.type);
+    });
+  }
+
   trimCustomScopes(customScopes) {
     if (!Array.isArray(customScopes)) {
       return [];
@@ -286,6 +367,297 @@ class ApplicationEditPage extends React.Component {
     this.setState({
       application: application,
     });
+  }
+
+  copyText(value) {
+    copy(value);
+    Setting.showMessage("success", i18next.t("general:Copied to clipboard successfully"));
+  }
+
+  renderReadonlyEditor(value, lang = "text") {
+    return (
+      <React.Fragment>
+        <Editor value={value} lang={lang} readOnly />
+        <Button style={{marginTop: "10px"}} type="primary" shape="round" icon={<CopyOutlined />} onClick={() => this.copyText(value)}>
+          {i18next.t("general:Copy")}
+        </Button>
+      </React.Fragment>
+    );
+  }
+
+  renderUserSyncApi() {
+    const endpoint = `${window.location.origin}/api/external/user/sync`;
+    const launchEndpoint = `${window.location.origin}/identity-verification/submit`;
+    const clientId = this.state.application.clientId || "<CASDOOR_APP_ID>";
+    const launchRedirectUri = "https://child.example.com/identity/callback";
+    const launchUrl = `${launchEndpoint}?clientId=${encodeURIComponent(clientId)}&userId=<Casdoor user sub>&redirectUri=${encodeURIComponent(launchRedirectUri)}&state=<state>&timestamp=<Unix timestamp seconds>&nonce=<random string>&signature=<hex HMAC-SHA256 signature>`;
+    const launchSignature = [
+      "signingString = timestamp + \"\\n\" + nonce + \"\\n\" + clientId + \"\\n\" + userId + \"\\n\" + redirectUri + \"\\n\" + state",
+      "signature = hex(HMAC-SHA256(<CASDOOR_CLIENT_SECRET>, signingString))",
+    ].join("\n");
+    const launchReturn = [
+      "redirectUri?state=<state>&status=approved&isVerified=true&ageChecked=true&isOver16=true",
+      "Casdoor will not append realName or idCard to the callback URL.",
+    ].join("\n");
+    const rawBody = JSON.stringify({userId: "<Casdoor user sub>"}, null, 2);
+    const headers = [
+      "Content-Type: application/json",
+      `X-Casdoor-App-Id: ${clientId}`,
+      "X-Casdoor-Timestamp: <Unix timestamp seconds>",
+      "X-Casdoor-Nonce: <random string>",
+      "X-Casdoor-Signature: <hex HMAC-SHA256 signature>",
+    ].join("\n");
+    const signature = [
+      "signingString = timestamp + \"\\n\" + nonce + \"\\n\" + rawBody",
+      "signature = hex(HMAC-SHA256(<CASDOOR_CLIENT_SECRET>, signingString))",
+    ].join("\n");
+    const response = JSON.stringify({
+      status: "ok",
+      msg: "",
+      data: {
+        userId: "sub",
+        owner: this.state.application.organization || "gepin",
+        name: "alice",
+        displayName: "Alice",
+        email: "alice@example.com",
+        phone: "13800000000",
+        isVerified: true,
+        ageChecked: true,
+        isOver16: true,
+      },
+      data2: null,
+    }, null, 2);
+    const curl = [
+      "curl -X POST " + endpoint + " \\",
+      "  -H 'Content-Type: application/json' \\",
+      "  -H 'X-Casdoor-App-Id: " + clientId + "' \\",
+      "  -H 'X-Casdoor-Timestamp: <Unix timestamp seconds>' \\",
+      "  -H 'X-Casdoor-Nonce: <random string>' \\",
+      "  -H 'X-Casdoor-Signature: <hex HMAC-SHA256 signature>' \\",
+      "  -d '" + JSON.stringify({userId: "<Casdoor user sub>"}) + "'",
+    ].join("\n");
+
+    return (
+      <React.Fragment>
+        <Row style={{marginTop: "10px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            实名跳转地址:
+          </Col>
+          <Col span={21}>
+            <Input value={launchEndpoint} readOnly addonAfter={<CopyOutlined onClick={() => this.copyText(launchEndpoint)} />} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            跳转 URL:
+          </Col>
+          <Col span={21}>
+            {this.renderReadonlyEditor(launchUrl)}
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            跳转签名:
+          </Col>
+          <Col span={21}>
+            {this.renderReadonlyEditor(launchSignature)}
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            返回参数:
+          </Col>
+          <Col span={21}>
+            {this.renderReadonlyEditor(launchReturn)}
+          </Col>
+        </Row>
+        <Row style={{marginTop: "10px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            同步接口:
+          </Col>
+          <Col span={21}>
+            <Input value={endpoint} readOnly addonAfter={<CopyOutlined onClick={() => this.copyText(endpoint)} />} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            App ID:
+          </Col>
+          <Col span={21}>
+            <Input value={clientId} readOnly addonAfter={<CopyOutlined onClick={() => this.copyText(clientId)} />} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            请求头:
+          </Col>
+          <Col span={21}>
+            {this.renderReadonlyEditor(headers)}
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            签名公式:
+          </Col>
+          <Col span={21}>
+            {this.renderReadonlyEditor(signature)}
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            请求体:
+          </Col>
+          <Col span={21}>
+            {this.renderReadonlyEditor(rawBody, "json")}
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            响应示例:
+          </Col>
+          <Col span={21}>
+            {this.renderReadonlyEditor(response, "json")}
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            curl:
+          </Col>
+          <Col span={21}>
+            {this.renderReadonlyEditor(curl, "shell")}
+          </Col>
+        </Row>
+      </React.Fragment>
+    );
+  }
+
+  renderIdentityVerificationRules() {
+    const rules = this.normalizeIdentityVerificationRules(this.state.application.identityVerificationRules);
+    const hasIdvProvider = this.hasIdvProvider(this.state.application);
+    const hasTrustedIdvProvider = this.hasTrustedIdvProvider(this.state.application, rules);
+    const actionOptions = [
+      {value: IdentityVerificationRuleAction.manualReview, label: "转人工审核"},
+      {value: IdentityVerificationRuleAction.reject, label: "自动驳回"},
+    ];
+    const idCardTypeOptions = [
+      {value: "CN_ID", label: "中国居民身份证"},
+      {value: "passport", label: "护照"},
+      {value: "driver_license", label: "驾驶证"},
+    ];
+    const providerTypeOptions = Setting.getProviderTypeOptions("ID Verification")
+      .filter(option => option.id === "Alibaba Cloud")
+      .map(option => ({value: option.id, label: option.name}));
+    const renderActionSelect = (field) => (
+      <Select virtual={false} style={{width: "100%"}} value={rules[field]} onChange={value => this.updateIdentityVerificationRuleField(field, value)}>
+        {actionOptions.map(option => <Option key={option.value} value={option.value}>{option.label}</Option>)}
+      </Select>
+    );
+    const renderReasonInput = (field) => (
+      <Input value={rules[field]} onChange={e => this.updateIdentityVerificationRuleField(field, e.target.value)} />
+    );
+
+    return (
+      <React.Fragment>
+        <Row style={{marginTop: "10px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            {Setting.getLabel("启用自动审核", "用户提交实名资料后自动执行本应用的实名规则")} :
+          </Col>
+          <Col span={21}>
+            <Switch checked={rules.enabled} onChange={checked => this.updateIdentityVerificationRuleField("enabled", checked)} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            {Setting.getLabel("要求可信核验", "自动通过必须依赖可信 ID Verification provider")} :
+          </Col>
+          <Col span={21}>
+            <Switch checked={rules.requireIdvProvider} onChange={checked => this.updateIdentityVerificationRuleField("requireIdvProvider", checked)} />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            {Setting.getLabel("Provider 状态", "请在 Providers 中配置 ID Verification provider")} :
+          </Col>
+          <Col span={21} style={{marginTop: "5px"}}>
+            {rules.requireIdvProvider ? (hasTrustedIdvProvider ? "已配置可信 ID Verification provider" : (hasIdvProvider ? "已配置 ID Verification provider，但类型不在可信列表中，提交后会转人工审核" : "未配置 ID Verification provider，提交后会转人工审核")) : "当前使用公共实名规则，满足身份证与年龄条件即可自动通过"}
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            {Setting.getLabel("允许证件类型", "不在列表内的证件类型会按规则处理")} :
+          </Col>
+          <Col span={21}>
+            <Select virtual={false} mode="tags" style={{width: "100%"}} value={rules.allowedIdCardTypes} onChange={value => this.updateIdentityVerificationRuleField("allowedIdCardTypes", value)}>
+              {idCardTypeOptions.map(option => <Option key={option.value} value={option.value}>{option.label}</Option>)}
+            </Select>
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            {Setting.getLabel("可信 Provider 类型", "只有列表内的 ID Verification provider 类型可自动通过")} :
+          </Col>
+          <Col span={21}>
+            <Select virtual={false} mode="tags" style={{width: "100%"}} value={rules.trustedProviderTypes} onChange={value => this.updateIdentityVerificationRuleField("trustedProviderTypes", value)}>
+              {providerTypeOptions.map(option => <Option key={option.value} value={option.value}>{option.label}</Option>)}
+            </Select>
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            {Setting.getLabel("证件类型不支持", "提交了不允许的证件类型时执行")} :
+          </Col>
+          <Col span={21}>{renderActionSelect("unsupportedIdCardAction")}</Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            {Setting.getLabel("证件号格式无效", "中国居民身份证格式或生日解析失败时执行")} :
+          </Col>
+          <Col span={21}>{renderActionSelect("invalidIdCardAction")}</Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            {Setting.getLabel("未满 16 岁", "根据中国居民身份证生日判断未满 16 岁时执行")} :
+          </Col>
+          <Col span={21}>{renderActionSelect("under16Action")}</Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            {Setting.getLabel("核验失败", "可信 provider 明确返回实名不匹配时执行")} :
+          </Col>
+          <Col span={21}>{renderActionSelect("providerFailureAction")}</Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            {Setting.getLabel("核验异常", "provider 未配置、不可信、超时或接口异常时执行")} :
+          </Col>
+          <Col span={21}>{renderActionSelect("providerErrorAction")}</Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            {Setting.getLabel("自动通过原因", "自动审核通过后写入实名审核说明")} :
+          </Col>
+          <Col span={21}>{renderReasonInput("autoApproveReason")}</Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            {Setting.getLabel("转人工原因", "规则转人工时写入实名审核说明")} :
+          </Col>
+          <Col span={21}>{renderReasonInput("manualReviewReason")}</Col>
+        </Row>
+        <Row style={{marginTop: "20px"}}>
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 3}>
+            {Setting.getLabel("自动驳回原因", "自动驳回时写入实名审核说明")} :
+          </Col>
+          <Col span={21}>
+            <Row gutter={[12, 12]}>
+              <Col span={8}>{renderReasonInput("unsupportedIdCardReason")}</Col>
+              <Col span={8}>{renderReasonInput("invalidIdCardReason")}</Col>
+              <Col span={8}>{renderReasonInput("providerFailureReason")}</Col>
+            </Row>
+          </Col>
+        </Row>
+      </React.Fragment>
+    );
   }
 
   handleUpload(info) {
@@ -703,6 +1075,7 @@ class ApplicationEditPage extends React.Component {
           </Row>
         </React.Fragment>
       )}
+      {this.state.activeMenuKey === "identity-verification" && this.renderIdentityVerificationRules()}
       {this.state.activeMenuKey === "oidc-oauth" && (
         <React.Fragment>
           <Row style={{marginTop: "10px"}} >
@@ -1022,6 +1395,7 @@ class ApplicationEditPage extends React.Component {
           </Row>
         </React.Fragment>
       )}
+      {this.state.activeMenuKey === "user-sync-api" && this.renderUserSyncApi()}
       {this.state.activeMenuKey === "providers" && (
         <React.Fragment>
           <Row style={{marginTop: "10px"}} >
@@ -1602,8 +1976,10 @@ class ApplicationEditPage extends React.Component {
                   items={[
                     {label: i18next.t("application:Basic"), key: "basic"},
                     {label: i18next.t("application:Authentication"), key: "authentication"},
+                    {label: "实名认证规则", key: "identity-verification"},
                     {label: "OIDC/OAuth", key: "oidc-oauth"},
                     {label: "SAML", key: "saml"},
+                    {label: "用户同步与实名跳转", key: "user-sync-api"},
                     {label: i18next.t("application:Providers"), key: "providers"},
                     {label: i18next.t("application:UI Customization"), key: "ui-customization"},
                     {label: i18next.t("application:Security"), key: "security"},
@@ -1628,8 +2004,10 @@ class ApplicationEditPage extends React.Component {
                   >
                     <Menu.Item key="basic">{i18next.t("application:Basic")}</Menu.Item>
                     <Menu.Item key="authentication">{i18next.t("application:Authentication")}</Menu.Item>
+                    <Menu.Item key="identity-verification">实名认证规则</Menu.Item>
                     <Menu.Item key="oidc-oauth">OIDC/OAuth</Menu.Item>
                     <Menu.Item key="saml">SAML</Menu.Item>
+                    <Menu.Item key="user-sync-api">用户同步与实名跳转</Menu.Item>
                     <Menu.Item key="providers">{i18next.t("application:Providers")}</Menu.Item>
                     <Menu.Item key="ui-customization">{i18next.t("application:UI Customization")}</Menu.Item>
                     <Menu.Item key="security">{i18next.t("application:Security")}</Menu.Item>
@@ -1766,6 +2144,7 @@ class ApplicationEditPage extends React.Component {
     const application = Setting.deepCopy(this.state.application);
     application.providers = application.providers?.filter(provider => this.state.providers.map(provider => provider.name).includes(provider.name));
     application.signinMethods = application.signinMethods?.filter(signinMethod => ["Password", "Verification code", "WebAuthn", "LDAP", "Face ID", "Device login", "WeChat"].includes(signinMethod.name));
+    application.identityVerificationRules = this.normalizeIdentityVerificationRules(application.identityVerificationRules);
     const customScopeValidation = this.validateCustomScopes(application.customScopes);
     application.customScopes = customScopeValidation.scopes;
     if (!customScopeValidation.ok) {

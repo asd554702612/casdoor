@@ -22,7 +22,7 @@ import (
 	"github.com/casdoor/casdoor/object"
 )
 
-func (c *ApiController) getSignedExternalPaymentApplication() (*object.Application, []byte, bool) {
+func (c *ApiController) getSignedExternalApplication() (*object.Application, []byte, bool) {
 	clientId := c.Ctx.Request.Header.Get("X-Casdoor-App-Id")
 	timestamp := c.Ctx.Request.Header.Get("X-Casdoor-Timestamp")
 	nonce := c.Ctx.Request.Header.Get("X-Casdoor-Nonce")
@@ -49,6 +49,10 @@ func (c *ApiController) getSignedExternalPaymentApplication() (*object.Applicati
 	}
 
 	return application, body, true
+}
+
+func (c *ApiController) getSignedExternalPaymentApplication() (*object.Application, []byte, bool) {
+	return c.getSignedExternalApplication()
 }
 
 // CreateExternalNativePayment

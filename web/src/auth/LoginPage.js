@@ -42,6 +42,7 @@ import {createFormAndSubmit, goToLink} from "../Setting";
 import WeChatLoginPanel from "./WeChatLoginPanel";
 import DeviceLoginPanel from "./DeviceLoginPanel";
 import NativeSsoPanel from "./NativeSsoPanel";
+import CustomLoginShell from "./CustomLoginShell";
 import {CountryCodeSelect} from "../common/select/CountryCodeSelect";
 const FaceRecognitionCommonModal = lazy(() => import("../common/modal/FaceRecognitionCommonModal"));
 const FaceRecognitionModal = lazy(() => import("../common/modal/FaceRecognitionModal"));
@@ -363,6 +364,11 @@ class LoginPage extends React.Component {
     }
   }
 
+  redirectToPasswordUpdate() {
+    sessionStorage.setItem("signinUrl", window.location.pathname + window.location.search);
+    this.props.onLoginSuccess(null, window.location.pathname + window.location.search);
+  }
+
   postCodeLoginAction(resp) {
     const application = this.getApplicationObj();
     const ths = this;
@@ -377,8 +383,7 @@ class LoginPage extends React.Component {
     }
 
     if (resp.data3) {
-      sessionStorage.setItem("signinUrl", window.location.pathname + window.location.search);
-      Setting.goToLinkSoft(ths, "/account");
+      this.redirectToPasswordUpdate();
       return;
     }
 
@@ -571,8 +576,7 @@ class LoginPage extends React.Component {
             const responseMode = oAuthParams?.responseMode || "query";
             if (responseType === "login") {
               if (res.data3) {
-                sessionStorage.setItem("signinUrl", window.location.pathname + window.location.search);
-                Setting.goToLinkSoft(this, "/account");
+                this.redirectToPasswordUpdate();
                 return;
               }
               Setting.showMessage("success", i18next.t("application:Logged in successfully"));
@@ -586,8 +590,7 @@ class LoginPage extends React.Component {
               });
             } else if (responseTypes.includes("token") || responseTypes.includes("id_token")) {
               if (res.data3) {
-                sessionStorage.setItem("signinUrl", window.location.pathname + window.location.search);
-                Setting.goToLinkSoft(this, "/account");
+                this.redirectToPasswordUpdate();
                 return;
               }
               const amendatoryResponseType = responseType === "token" ? "access_token" : responseType;
@@ -609,8 +612,7 @@ class LoginPage extends React.Component {
                 return;
               }
               if (res.data3) {
-                sessionStorage.setItem("signinUrl", window.location.pathname + window.location.search);
-                Setting.goToLinkSoft(this, "/account");
+                this.redirectToPasswordUpdate();
                 return;
               }
               if (res.data2.method === "POST") {
@@ -1312,8 +1314,7 @@ class LoginPage extends React.Component {
         const responseMode = oAuthParams?.responseMode || "query";
         if (responseType === "login") {
           if (res.data3) {
-            sessionStorage.setItem("signinUrl", window.location.pathname + window.location.search);
-            Setting.goToLinkSoft(this, "/account");
+            this.redirectToPasswordUpdate();
             return;
           }
           Setting.showMessage("success", i18next.t("application:Logged in successfully"));
@@ -1327,8 +1328,7 @@ class LoginPage extends React.Component {
           });
         } else if (responseTypes.includes("token") || responseTypes.includes("id_token")) {
           if (res.data3) {
-            sessionStorage.setItem("signinUrl", window.location.pathname + window.location.search);
-            Setting.goToLinkSoft(this, "/account");
+            this.redirectToPasswordUpdate();
             return;
           }
           const amendatoryResponseType = responseType === "token" ? "access_token" : responseType;
@@ -1887,41 +1887,46 @@ class LoginPage extends React.Component {
     }
 
     const showNativeSso = this.shouldRenderNativeSso(application);
+    const showNativeSsoActive = showNativeSso && this.state.nativeSsoActive;
+    const loginPanel = (
+      <div className={Setting.isDarkTheme(this.props.themeAlgorithm) ? "login-panel-dark" : "login-panel"}>
+        <div className="side-image" style={{display: application.formOffset !== 4 ? "none" : null}}>
+          <div dangerouslySetInnerHTML={{__html: application.formSideHtml}} />
+        </div>
+        <div className="login-form">
+          <div>
+            {showNativeSso && !this.state.nativeSsoSuppressed ? (
+              <NativeSsoPanel
+                key={`native-sso-${this.state.nativeSsoRestartKey}`}
+                application={application}
+                restartKey={this.state.nativeSsoRestartKey}
+                initialAgent={this.state.nativeSsoKnownAgent}
+                onActiveChange={(active) => this.setState({nativeSsoActive: active})}
+                onFallback={(messageText, agent) => this.handleNativeSsoFallback(messageText, agent)}
+                onSuccess={(result) => this.handleNativeSsoSuccess(result)}
+              />
+            ) : null}
+            {showNativeSsoActive ? null : this.renderLoginPanel(application)}
+          </div>
+        </div>
+      </div>
+    );
 
     return (
       <React.Fragment>
         <CustomGithubCorner />
-        <div className="login-content" style={{margin: this.props.preview ?? this.parseOffset(application.formOffset)}}>
-          {this.renderNativeSsoOverlay()}
-          {Setting.inIframe() || Setting.isMobile() ? null : <div dangerouslySetInnerHTML={{__html: application.formCss}} />}
-          {Setting.inIframe() || !Setting.isMobile() ? null : <div dangerouslySetInnerHTML={{__html: application.formCssMobile}} />}
-          <div className={Setting.isDarkTheme(this.props.themeAlgorithm) ? "login-panel-dark" : "login-panel"}>
-            <div className="side-image" style={{display: application.formOffset !== 4 ? "none" : null}}>
-              <div dangerouslySetInnerHTML={{__html: application.formSideHtml}} />
-            </div>
-            <div className="login-form">
-              <div>
-                {showNativeSso && !this.state.nativeSsoSuppressed ? (
-                  <NativeSsoPanel
-                    key={`native-sso-${this.state.nativeSsoRestartKey}`}
-                    application={application}
-                    restartKey={this.state.nativeSsoRestartKey}
-                    initialAgent={this.state.nativeSsoKnownAgent}
-                    onActiveChange={(active) => this.setState({nativeSsoActive: active})}
-                    onFallback={(messageText, agent) => this.handleNativeSsoFallback(messageText, agent)}
-                    onSuccess={(result) => this.handleNativeSsoSuccess(result)}
-                  />
-                ) : null}
-                {showNativeSso && this.state.nativeSsoActive ? null : this.renderLoginPanel(application)}
-              </div>
-            </div>
-            {sidePanels.length > 0 && !(showNativeSso && this.state.nativeSsoActive) ? (
-              <div style={{display: "flex", justifyContent: "center", alignItems: "center", flexDirection: "column", gap: 24}}>
-                {sidePanels}
-              </div>
-            ) : null}
+        {Setting.inIframe() || Setting.isMobile() ? null : <div dangerouslySetInnerHTML={{__html: application.formCss}} />}
+        {Setting.inIframe() || !Setting.isMobile() ? null : <div dangerouslySetInnerHTML={{__html: application.formCssMobile}} />}
+        <CustomLoginShell
+          application={application}
+          nativeSsoOverlay={this.renderNativeSsoOverlay()}
+          sidePanels={sidePanels}
+          showSidePanels={!showNativeSsoActive}
+        >
+          <div className="login-content" style={{margin: this.props.preview ?? this.parseOffset(application.formOffset)}}>
+            {loginPanel}
           </div>
-        </div>
+        </CustomLoginShell>
       </React.Fragment>
     );
   }

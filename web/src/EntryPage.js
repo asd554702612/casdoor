@@ -36,6 +36,10 @@ import QrCodePage from "./QrCodePage";
 import CaptchaPage from "./CaptchaPage";
 import CustomHead from "./basic/CustomHead";
 import * as Util from "./auth/Util";
+import IdentityVerificationPage from "./IdentityVerificationPage";
+import {hasIdentityVerificationLaunchParams} from "./identityVerificationLaunch";
+
+export {hasIdentityVerificationLaunchParams};
 
 class EntryPage extends React.Component {
   constructor(props) {
@@ -56,13 +60,21 @@ class EntryPage extends React.Component {
 
   renderLoginIfNotLoggedIn(component) {
     if (this.props.account === null) {
-      sessionStorage.setItem("from", window.location.pathname);
+      sessionStorage.setItem("from", `${window.location.pathname}${window.location.search}`);
       return <Redirect to="/login" />;
     } else if (this.props.account === undefined) {
       return null;
+    } else if (this.props.account.needUpdatePassword) {
+      Setting.savePostPasswordUpdateRedirect(`${window.location.pathname}${window.location.search}`, this.props.account);
+      return <Redirect to="/account" />;
     } else {
       return component;
     }
+  }
+
+  isIdentityVerificationPage() {
+    const pathname = window.location.pathname;
+    return pathname === "/identity-verification" || pathname.startsWith("/identity-verification/submit");
   }
 
   render() {
@@ -96,23 +108,28 @@ class EntryPage extends React.Component {
         });
     };
 
-    if (this.state.application?.ipRestriction) {
-      return Util.renderMessageLarge(this, this.state.application.ipRestriction);
+    const isIdentityVerificationPage = this.isIdentityVerificationPage();
+    const application = this.state.application ?? (isIdentityVerificationPage ? this.props.application : undefined);
+
+    if (application?.ipRestriction) {
+      return Util.renderMessageLarge(this, application.ipRestriction);
     }
 
-    if (this.state.application?.organizationObj?.ipRestriction) {
-      return Util.renderMessageLarge(this, this.state.application.organizationObj.ipRestriction);
+    if (application?.organizationObj?.ipRestriction) {
+      return Util.renderMessageLarge(this, application.organizationObj.ipRestriction);
     }
 
     const isDarkMode = this.props.themeAlgorithm.includes("dark");
+    const backgroundImage = Setting.inIframe() || application === undefined || application === null ? null :
+      (Setting.isMobile() ? `url(${application.formBackgroundUrlMobile})` : `url(${application.formBackgroundUrl})`);
 
     return (
       <React.Fragment>
-        <CustomHead headerHtml={this.state.application?.headerHtml} />
+        <CustomHead headerHtml={application?.headerHtml} />
         <div className={`${isDarkMode ? "loginBackgroundDark" : "loginBackground"}`}
-          style={{backgroundImage: Setting.inIframe() ? null : (Setting.isMobile() ? `url(${this.state.application?.formBackgroundUrlMobile})` : `url(${this.state.application?.formBackgroundUrl})`)}}>
+          style={{backgroundImage}}>
           <Loading
-            spinning={this.state.application === undefined && this.state.pricing === undefined}
+            spinning={!isIdentityVerificationPage && application === undefined && this.state.pricing === undefined}
             tip={i18next.t("login:Loading")}
             style={{position: "absolute", width: "100%", top: 0, bottom: 0}}
           />
@@ -139,6 +156,11 @@ class EntryPage extends React.Component {
             <Route exact path="/buy-plan/:owner/:pricingName/result" render={(props) => <PaymentResultPage {...this.props} pricing={this.state.pricing} onUpdatePricing={onUpdatePricing} {...props} />} />
             <Route exact path="/qrcode/:owner/:paymentName" render={(props) => <QrCodePage {...this.props} onUpdateApplication={onUpdateApplication} {...props} />} />
             <Route exact path="/captcha" render={(props) => <CaptchaPage {...props} />} />
+            <Route exact path="/identity-verification" render={(props) => <Redirect to={{pathname: "/identity-verification/submit", search: props.location.search}} />} />
+            <Route exact path="/identity-verification/submit" render={(props) => {
+              const page = <IdentityVerificationPage {...this.props} account={this.props.account} themeAlgorithm={this.props.themeAlgorithm} application={application} {...props} />;
+              return hasIdentityVerificationLaunchParams(props.location.search) ? page : this.renderLoginIfNotLoggedIn(page);
+            }} />
           </Switch>
         </div>
 

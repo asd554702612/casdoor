@@ -27,6 +27,7 @@ tmpFiles/
 *.tmp
 logs/
 files/
+docker-data/
 lastupdate.tmp
 commentsRouter*.go
 

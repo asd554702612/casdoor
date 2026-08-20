@@ -31,25 +31,7 @@ import {CountryCodeSelect} from "../common/select/CountryCodeSelect";
 import * as PasswordChecker from "../common/PasswordChecker";
 import * as InvitationBackend from "../backend/InvitationBackend";
 import {CaptchaModal} from "../common/modal/CaptchaModal";
-
-const formItemLayout = {
-  labelCol: {
-    xs: {
-      span: 24,
-    },
-    sm: {
-      span: 8,
-    },
-  },
-  wrapperCol: {
-    xs: {
-      span: 24,
-    },
-    sm: {
-      span: 16,
-    },
-  },
-};
+import CustomLoginShell from "./CustomLoginShell";
 
 const renderFormItem = (signupItem) => {
   const commonRules = [
@@ -254,6 +236,13 @@ class SignupPage extends React.Component {
     if (offset === 3) {
       return "0 60%";
     }
+  }
+
+  getSignupItemClassName(signupItem) {
+    const name = signupItem.name?.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "custom";
+    const fullWidthItems = ["Agreement", "Signup button", "Providers", "Invitation code"];
+    const fullWidthByPrefix = signupItem.name?.startsWith("Text ");
+    return `signup-grid-item signup-grid-item-${name}${fullWidthItems.includes(signupItem.name) || fullWidthByPrefix ? " signup-grid-item-full" : ""}`;
   }
 
   getLanguageSelectorMode(application) {
@@ -993,7 +982,6 @@ class SignupPage extends React.Component {
 
     return (
       <Form
-        {...formItemLayout}
         ref={this.form}
         name="signup"
         onFinish={(values) => this.onFinish(values)}
@@ -1004,8 +992,9 @@ class SignupPage extends React.Component {
           countryCode: application.organizationObj.countryCodes?.[0],
         }}
         size="large"
-        layout={Setting.isMobile() ? "vertical" : "horizontal"}
-        style={{width: Setting.isMobile() ? "300px" : "400px"}}
+        layout="vertical"
+        className="custom-signup-form"
+        style={{width: "100%"}}
       >
         <Form.Item
           name="application"
@@ -1031,10 +1020,15 @@ class SignupPage extends React.Component {
         </Form.Item>
         {
           application.signupItems?.map((signupItem, idx) => {
+            const formItem = this.renderFormItem(application, signupItem);
+            if (formItem === null) {
+              return null;
+            }
+
             return (
-              <div key={idx}>
+              <div key={idx} className={this.getSignupItemClassName(signupItem)}>
                 <div dangerouslySetInnerHTML={{__html: ("<style>" + signupItem.customCss + "</style>")}} />
-                {this.renderFormItem(application, signupItem)}
+                {formItem}
               </div>
             );
           })
@@ -1072,34 +1066,37 @@ class SignupPage extends React.Component {
     return (
       <React.Fragment>
         <CustomGithubCorner />
-        <div className="login-content" style={{margin: this.props.preview ?? this.parseOffset(application.formOffset)}}>
-          {Setting.inIframe() || Setting.isMobile() ? null : <div dangerouslySetInnerHTML={{__html: application.formCss}} />}
-          {Setting.inIframe() || !Setting.isMobile() ? null : <div dangerouslySetInnerHTML={{__html: application.formCssMobile}} />}
-          <div className={Setting.isDarkTheme(this.props.themeAlgorithm) ? "login-panel-dark" : "login-panel"}>
-            <div className="side-image" style={{display: application.formOffset !== 4 ? "none" : null}}>
-              <div dangerouslySetInnerHTML={{__html: application.formSideHtml}} />
-            </div>
-            <div className="login-form">
-              {
-                Setting.renderHelmet(application)
-              }
-              {
-                Setting.renderLogo(application)
-              }
-              <LanguageSelect
-                languages={application.organizationObj.languages}
-                mode={this.getLanguageSelectorMode(application)}
-                style={{top: "55px", right: "5px", position: "absolute"}}
-              />
-              {
-                this.renderForm(application)
-              }
-              {
-                this.renderCaptchaModal(application)
-              }
+        {Setting.inIframe() || Setting.isMobile() ? null : <div dangerouslySetInnerHTML={{__html: application.formCss}} />}
+        {Setting.inIframe() || !Setting.isMobile() ? null : <div dangerouslySetInnerHTML={{__html: application.formCssMobile}} />}
+        <CustomLoginShell application={application} mode="signup">
+          <div className="login-content signup-content" style={{margin: this.props.preview ?? this.parseOffset(application.formOffset)}}>
+            <div className={Setting.isDarkTheme(this.props.themeAlgorithm) ? "login-panel-dark" : "login-panel"}>
+              <div className="side-image" style={{display: application.formOffset !== 4 ? "none" : null}}>
+                <div dangerouslySetInnerHTML={{__html: application.formSideHtml}} />
+              </div>
+              <div className="login-form">
+                {
+                  Setting.renderHelmet(application)
+                }
+                {
+                  Setting.renderLogo(application)
+                }
+                <div className="login-languages signup-languages">
+                  <LanguageSelect
+                    languages={application.organizationObj.languages}
+                    mode={this.getLanguageSelectorMode(application)}
+                  />
+                </div>
+                {
+                  this.renderForm(application)
+                }
+                {
+                  this.renderCaptchaModal(application)
+                }
+              </div>
             </div>
           </div>
-        </div>
+        </CustomLoginShell>
       </React.Fragment>
     );
   }

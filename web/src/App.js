@@ -458,7 +458,7 @@ class App extends Component {
       window.history.replaceState({}, document.title, newUrl);
     }
 
-    AuthBackend.getAccount(query)
+    return AuthBackend.getAccount(query)
       .then((res) => {
         let account = null;
         let accessToken = null;
@@ -483,10 +483,15 @@ class App extends Component {
           account: account,
           accessToken: accessToken,
         });
+        return account;
       });
   }
 
   onUpdateAccount(account) {
+    if (account === null) {
+      Setting.clearPostPasswordUpdateRedirect();
+    }
+
     this.setState({
       account: account,
     });
@@ -495,12 +500,18 @@ class App extends Component {
   renderFooter(logo, footerHtml) {
     logo = logo ?? this.state.logo;
     footerHtml = footerHtml ?? this.state.application?.footerHtml;
+    const defaultFooter = "© 2018 成都格品科技有限公司版权所有 蜀ICP备17044249号-1";
     return (
       <React.Fragment>
         {!this.state.account ? null : <div style={{display: "none"}} id="CasdoorApplicationName" value={this.state.account.signupApplication} />}
         {!this.state.account ? null : <div style={{display: "none"}} id="CasdoorAccessToken" value={this.state.accessToken} />}
         <Footer id="footer" style={
           {
+            height: "56px",
+            padding: "0 16px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             textAlign: "center",
           }
         }>
@@ -511,9 +522,7 @@ class App extends Component {
               </React.Fragment>
               : (
                 Conf.CustomFooter !== null ? Conf.CustomFooter : (
-                  <React.Fragment>
-                    Powered by <a target="_blank" href="https://casdoor.org" rel="noreferrer"><img style={{paddingBottom: "3px"}} height={"20px"} alt={"Casdoor"} src={logo} /></a>
-                  </React.Fragment>
+                  <span className="gepin-default-footer">{defaultFooter}</span>
                 )
               )
           }
@@ -563,17 +572,20 @@ class App extends Component {
   }
 
   isEntryPages() {
-    return window.location.pathname.startsWith("/signup") ||
-      window.location.pathname.startsWith("/login") ||
-      window.location.pathname.startsWith("/forget") ||
-      window.location.pathname.startsWith("/prompt") ||
-      window.location.pathname.startsWith("/result") ||
-      window.location.pathname.startsWith("/cas") ||
-      window.location.pathname.startsWith("/select-plan") ||
-      window.location.pathname.startsWith("/buy-plan") ||
-      window.location.pathname.startsWith("/qrcode") ||
-      window.location.pathname.startsWith("/consent") ||
-      window.location.pathname.startsWith("/captcha");
+    const pathname = window.location.pathname;
+    return pathname.startsWith("/signup") ||
+      pathname.startsWith("/login") ||
+      pathname.startsWith("/forget") ||
+      pathname.startsWith("/prompt") ||
+      pathname.startsWith("/result") ||
+      pathname.startsWith("/cas") ||
+      pathname.startsWith("/select-plan") ||
+      pathname.startsWith("/buy-plan") ||
+      pathname.startsWith("/qrcode") ||
+      pathname.startsWith("/consent") ||
+      pathname.startsWith("/captcha") ||
+      pathname === "/identity-verification" ||
+      pathname.startsWith("/identity-verification/submit");
   }
 
   onClick = ({key}) => {
@@ -586,12 +598,36 @@ class App extends Component {
     }
   };
 
-  onLoginSuccess(redirectUrl) {
+  onLoginSuccess(redirectUrl, postPasswordUpdateRedirect) {
     window.google?.accounts?.id?.cancel();
     if (redirectUrl) {
       localStorage.setItem("mfaRedirectUrl", redirectUrl);
+      this.getAccount();
+      return;
     }
-    this.getAccount();
+
+    const from = Setting.getFromLink();
+    const currentPath = `${window.location.pathname}${window.location.search}`;
+    this.getAccount()?.then((account) => {
+      const hasFrom = from !== "/" && from !== currentPath;
+      const passwordUpdateRedirect = hasFrom ? from : postPasswordUpdateRedirect;
+      if (account?.needUpdatePassword) {
+        if (passwordUpdateRedirect !== undefined && passwordUpdateRedirect !== null && passwordUpdateRedirect !== "") {
+          Setting.savePostPasswordUpdateRedirect(passwordUpdateRedirect, account);
+          sessionStorage.removeItem("from");
+        } else {
+          Setting.clearPostPasswordUpdateRedirect();
+        }
+        Setting.goToLinkSoft(this, "/account");
+        return;
+      }
+
+      Setting.clearPostPasswordUpdateRedirect();
+      if (hasFrom) {
+        sessionStorage.removeItem("from");
+        Setting.goToLink(from);
+      }
+    });
   }
 
   renderPage() {
@@ -628,11 +664,12 @@ class App extends Component {
           <StyleProvider hashPriority="high" transformers={[legacyLogicalPropertiesTransformer]}>
             <Layout id="parent-area">
               <CustomHead id="page" headerHtml={this.state.application?.pageHtml} />
-              <Content style={{display: "flex", justifyContent: "center"}}>
+              <Content style={{display: "flex", justifyContent: "center", minHeight: "calc(100vh - 56px)"}}>
                 {
                   this.isEntryPages() ?
                     <EntryPage
                       account={this.state.account}
+                      application={this.state.application}
                       theme={this.state.themeData}
                       themeAlgorithm={this.state.themeAlgorithm}
                       requiredEnableMfa={this.state.requiredEnableMfa}
@@ -641,13 +678,13 @@ class App extends Component {
                           application: application,
                         });
                       }}
-                      onLoginSuccess={(redirectUrl) => {this.onLoginSuccess(redirectUrl);}}
+                      onLoginSuccess={(redirectUrl, postPasswordUpdateRedirect) => {this.onLoginSuccess(redirectUrl, postPasswordUpdateRedirect);}}
                       onUpdateAccount={(account) => this.onUpdateAccount(account)}
                       updataThemeData={this.setTheme}
                     /> :
                     <Switch>
-                      <Route exact path="/callback" render={(props) => <AuthCallback {...props} {...this.props} application={this.state.application} onLoginSuccess={(redirectUrl) => {this.onLoginSuccess(redirectUrl);}} />} />
-                      <Route exact path="/callback/saml" render={(props) => <SamlCallback {...props} {...this.props} application={this.state.application} onLoginSuccess={(redirectUrl) => {this.onLoginSuccess(redirectUrl);}} />} />
+                      <Route exact path="/callback" render={(props) => <AuthCallback {...props} {...this.props} application={this.state.application} onLoginSuccess={(redirectUrl, postPasswordUpdateRedirect) => {this.onLoginSuccess(redirectUrl, postPasswordUpdateRedirect);}} />} />
+                      <Route exact path="/callback/saml" render={(props) => <SamlCallback {...props} {...this.props} application={this.state.application} onLoginSuccess={(redirectUrl, postPasswordUpdateRedirect) => {this.onLoginSuccess(redirectUrl, postPasswordUpdateRedirect);}} />} />
                       <Route exact path="/telegram-login" render={(props) => <TelegramLogin {...props} {...this.props} />} />
                       <Route path="" render={() => <Result status="404" title="404 NOT FOUND" subTitle={i18next.t("general:Sorry, the page you visited does not exist.")}
                         extra={<a href="/"><Button type="primary">{i18next.t("general:Back Home")}</Button></a>} />} />
@@ -753,11 +790,11 @@ class App extends Component {
       <React.Fragment>
         {(this.state.account === undefined || this.state.account === null) ?
           <Helmet>
-            <link rel="icon" href={"https://cdn.casdoor.com/static/favicon.png"} />
+            <link rel="icon" href={"/gepin-favicon.ico"} />
           </Helmet> :
           <Helmet>
             <title>{this.state.account.organization?.displayName}</title>
-            <link rel="icon" href={this.state.account.organization?.favicon} />
+            <link rel="icon" href={this.state.account.organization?.favicon || "/gepin-favicon.ico"} />
           </Helmet>
         }
         <ConfigProvider

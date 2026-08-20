@@ -45,12 +45,82 @@ export function getUser(owner, name) {
   }).then(res => res.json());
 }
 
-export function updateUser(owner, name, user) {
+export function updateUser(owner, name, user, columns = "") {
   const newUser = Setting.deepCopy(user);
-  return fetch(`${Setting.ServerUrl}/api/update-user?id=${owner}/${encodeURIComponent(name)}`, {
+  const columnsParam = columns === "" ? "" : `&columns=${encodeURIComponent(columns)}`;
+  return fetch(`${Setting.ServerUrl}/api/update-user?id=${owner}/${encodeURIComponent(name)}${columnsParam}`, {
     method: "POST",
     credentials: "include",
     body: JSON.stringify(newUser),
+    headers: {
+      "Accept-Language": Setting.getAcceptLanguage(),
+    },
+  }).then(res => res.json());
+}
+
+export function getIdentityVerification() {
+  return fetch(`${Setting.ServerUrl}/api/get-identity-verification`, {
+    method: "GET",
+    credentials: "include",
+    headers: {
+      "Accept-Language": Setting.getAcceptLanguage(),
+    },
+  }).then(res => res.json());
+}
+
+export function getIdentityVerificationLaunch(params) {
+  const query = new URLSearchParams();
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      query.set(key, value);
+    }
+  });
+  return fetch(`${Setting.ServerUrl}/api/get-identity-verification-launch?${query.toString()}`, {
+    method: "GET",
+    credentials: "include",
+    headers: {
+      "Accept-Language": Setting.getAcceptLanguage(),
+    },
+  }).then(res => res.json());
+}
+
+export function submitIdentityVerification(owner, name, idCardType, idCard, realName) {
+  return fetch(`${Setting.ServerUrl}/api/submit-identity-verification`, {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify({owner, name, idCardType, idCard, realName}),
+    headers: {
+      "Accept-Language": Setting.getAcceptLanguage(),
+    },
+  }).then(res => res.json());
+}
+
+export function reviewIdentityVerification(owner, name, userId, status, reason = "") {
+  return fetch(`${Setting.ServerUrl}/api/review-identity-verification`, {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify({owner, name, userId, status, reason}),
+    headers: {
+      "Accept-Language": Setting.getAcceptLanguage(),
+    },
+  }).then(res => res.json());
+}
+
+export function getIdentityVerifications(owner, page = "", pageSize = "", field = "", value = "", sortField = "", sortOrder = "", isVerified = "", status = "") {
+  return fetch(`${Setting.ServerUrl}/api/get-identity-verifications?owner=${encodeURIComponent(owner)}&p=${page}&pageSize=${pageSize}&field=${encodeURIComponent(field)}&value=${encodeURIComponent(value)}&sortField=${encodeURIComponent(sortField)}&sortOrder=${sortOrder}&isVerified=${isVerified}&status=${status}`, {
+    method: "GET",
+    credentials: "include",
+    headers: {
+      "Accept-Language": Setting.getAcceptLanguage(),
+    },
+  }).then(res => res.json());
+}
+
+export function resetIdentityVerification(owner, name, userId = "") {
+  return fetch(`${Setting.ServerUrl}/api/reset-identity-verification`, {
+    method: "POST",
+    credentials: "include",
+    body: JSON.stringify({owner, name, userId}),
     headers: {
       "Accept-Language": Setting.getAcceptLanguage(),
     },

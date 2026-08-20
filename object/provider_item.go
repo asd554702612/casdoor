@@ -38,6 +38,27 @@ func (application *Application) GetProviderItem(providerName string) *ProviderIt
 	return nil
 }
 
+func (application *Application) HasProvider(provider *Provider) bool {
+	if application == nil || provider == nil {
+		return false
+	}
+	for _, providerItem := range application.Providers {
+		if providerItem == nil {
+			continue
+		}
+		if providerItem.Provider != nil && providerItem.Provider.Owner == provider.Owner && providerItem.Provider.Name == provider.Name {
+			return true
+		}
+		if providerItem.Owner != "" && providerItem.Owner == provider.Owner && providerItem.Name == provider.Name {
+			return true
+		}
+		if providerItem.Owner == "" && providerItem.Name == provider.Name {
+			return true
+		}
+	}
+	return false
+}
+
 func (application *Application) GetProviderItemByType(providerType string) *ProviderItem {
 	for _, item := range application.Providers {
 		if item.Provider == nil {
